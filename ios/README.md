@@ -1,3 +1,5 @@
+[TOC]
+
 ## APP发布
 通过三个坐标绑定一个新APP：证书 + appid + 描述文件
 ### 新APP绑定过程
@@ -22,9 +24,13 @@
 4. 修改APPID需要重新申请第三方的key，如高德地图等。
 5. 
 
+## xcode使用
+### 获取应用.sqlite文件
+1. 打开：Window -> Devices and Simulators
+2. 在Devices面板点击App，Download Container
 
-
-## 格式化字符串
+## OC语法
+### 格式化字符串
 * %d：十进制整数
 * %s：字符串（char，NSString是对象）
 * %o：八进制（octol）
@@ -41,12 +47,12 @@
 > 2. 通过在%和f或者e之间加入小数点和数字来指定浮点数小数位数，如：%.2f（两位小数）, %.2e（两位小数科学计数法）
 
 
-## 数字
+### 数字
 * UInt32：无符号32位整数；
 * SInt16：有符号16位整数
 
 
-## 变量
+### 变量
 1. NSInteger（有符号）、NSUInteger（无符号）可以在32位和64位系统中通用的数字类型。printf这两种类型时，需要转换为long型，如：
 ```c
     NSInteger x = -5;
@@ -54,13 +60,10 @@
     printf("Here they are: %ld, %lu", (long)x, (unsigned long)y)
 ```
 
-## 方法
+### 方法
 1. abs(), labs()：前者计算int型绝对值、后者计算long型绝对值，需要include <stdlib.h>
-
 2. include <math.h>使用数学代码库。
-
 3. readline()：获取用户输入，需要引入代码库；libreadline.tbd
-
 4. atoi()：将字符串转为整数，如：
 ```c
 int num = "23" //出错
@@ -89,11 +92,11 @@ printf("A pointer is %zu\n", sizeof(addressOfI));//结果为：A pointer is 8
     * 这种参数传递方式称为==通过引用传递==
 
 
-## 指针
+### 指针
 > 可以通过变量存储指针地址，通过指针地址变量可以快速传递大数据所在内存地址
 
 1. 在变量前面添加&运算符，来获得变量的内存地址
-2. \*有三种用途：
+2. 有三种用途：
     * 声明指针，使变量指向内存地址；
     * 访问保存在内存地址中的数据；
     * 用在赋值表达式的左侧，将数据保存在指定的地址；
@@ -116,42 +119,42 @@ printf("Now i is %d\n", i);
 
 > 某些情况需要使用“空”指针，不指向任何地址。换句话说，有一个指针变量，要给这个变量附上一个值，用来说明此变量没指向任何地址。NULL就是这样一个值，用来说明这个指针变量未指向任何地址。
 
-## 结构（structure）
+### 结构（structure）
 1. 使用结构（struct），来定义多个数据的组合体，类似Java中的pojo
-
 2. 定义结构的两种方式
-    * sturct关键字，定义的时候都要写struct关键字
+	* sturct关键字，定义的时候都要写struct关键字
+	* typedef关键字
+```c
+/// 1.sturct关键字，定义的时候都要写struct关键字
+struct Person {
+    float height;
+    int weight;
+}
 
-    ```c
-    struct Person {
-        float height;
-        int weight;
-    }
-    
-    int main(int argc, const char * argv[]){
-        struct Person leron; //声明Person变量时需要struct关键字
-        leron.height = 1.80;
-        leron.weight = 75;
-    }
-    ```
-    * typedef关键字
-    
-    ```c
-    typedef struct {
-        float height;
-        int weight;
-    }Person；
-    
-    int main(int argc, const char * argv[]){
-        Person leron; //声明Person变量时不需要struct关键字
-        leron.height = 1.80;
-        leron.weight = 75;
-    }
-    ```
-## 栈 & 堆
+int main(int argc, const char * argv[]){
+    struct Person leron; //声明Person变量时需要struct关键字
+    leron.height = 1.80;
+    leron.weight = 75;
+}
+
+/// 2.typedef关键字
+typedef struct {
+    float height;
+    int weight;
+}Person；
+
+int main(int argc, const char * argv[]){
+    Person leron; //声明Person变量时不需要struct关键字
+    leron.height = 1.80;
+    leron.weight = 75;
+}
+```
+
+### 栈 & 堆
 1. 栈：调用函数时系统自动分配，并在函数结束时自动释放。
 2. 堆：特定内存区域，与栈是分开的。通常连续内存区域叫做：缓冲区。缓冲区来自堆，独立于任何函数的栈，因此可以在多个函数中使用。
-    * 在C中可以通过malloc()函数得到一块内存缓冲区。当程序不再使用缓冲区时，可以使用free()函数释放内存，还给堆
+> 在C中可以通过malloc()函数得到一块内存缓冲区。当程序不再使用缓冲区时，可以使用free()函数释放内存，还给堆
+
 ```c
 #include <stdio.h>
 #include <stdlib.h>
@@ -200,30 +203,15 @@ int main(int argc, const char * argv[]) {
     return 0;
 }
 ```
-## 添加代码库
 
-
-## 获取应用.sqlite文件
-1. 打开：Window -> Devices and Simulators
-2. 在Devices面板点击App，Download Container
-
-
-## H5嵌入
-
-### UIWebView
-
-### WebViewJavascriptBridge
-
-
+## OC开发
 ### UITableView
 #### 基本介绍
-UITableView有两种风格：UITableViewStylePlain和UITableViewStyleGrouped。这两者操作起来其实并没有本质区别，只是后者按分组样式显示前者按照普通样式显示而已
+1. UITableView有两种风格：UITableViewStylePlain和UITableViewStyleGrouped。这两者操作起来其实并没有本质区别，只是后者按分组样式显示前者按照普通样式显示而已
 
 
-iOS已经在其内部设置好了多个子控件以供开发者使用。如果我们查看UITableViewCell的声明文件可以发现在内部有一个UIView控件（contentView，作为其他元素的父控件）、两个UILable控件（textLabel、detailTextLabel）、一个UIImage控件（imageView），分别用于容器、显示内容、详情和图片。
-
-
-```oc
+2. iOS已经在其内部设置好了多个子控件以供开发者使用。
+```c
 typedef NS_ENUM(NSInteger, UITableViewCellStyle) {
     UITableViewCellStyleDefault,    // 左侧显示textLabel（不显示detailTextLabel），imageView可选（显示在最左边）
     UITableViewCellStyleValue1,        // 左侧显示textLabel、右侧显示detailTextLabel（默认蓝色），imageView可选（显示在最左边）
@@ -232,24 +220,20 @@ typedef NS_ENUM(NSInteger, UITableViewCellStyle) {
 };
 ```
 
-
-大家在使用iPhone通讯录时会发现右侧可以按字母检索，使用起来很方便，其实这个功能使用UITableView实现很简单，只要实现数据源协议的一个方法，构建一个分组标题的数组即可实现。数组元素的内容和组标题内容未必完全一致，UITableView是按照数组元素的索引和每组数据索引顺序来定位的而不是按内容查找。
-
-
+```flow
+A=>operation: 计算分组数
+B=>operation: 生成分组索引
+C=>operation: 依次生成所有组的所有单元格
+A->B->C
 ```
-graph TD
-A(计算分组数)-->B(计算每组的行数)
-B-->C(生成分组索引)
-C-->D(依次生成所有组的所有单元格)
-```
-值得指出的是生成单元格的方法并不是一次全部调用，而是只会生产当前显示在界面上的单元格，当用户滚动操作时再显示其他单元格。
+> 值得指出的是生成单元格的方法并不是一次全部调用，而是只会生产当前显示在界面上的单元格，当用户滚动操作时再显示其他单元格
 
-#### MBProgressHUD
-效果一 只显示文字:
-```
-// 只显示文字
+
+## 第三方框架
+### MBProgressHUD
+#### 效果一 只显示文字:
+```c
 - (void)TextButtonAction{
-    
     self.HUD = [[MBProgressHUD alloc] initWithView:self.view];
     [self.view addSubview:_HUD];
     _HUD.labelText = @"加载中,请稍等...";
@@ -263,19 +247,12 @@ C-->D(依次生成所有组的所有单元格)
            [_HUD removeFromSuperview];
            _HUD = nil;
        }];
-
 }
-
 ```
 
-效果二 圆形进度条
-
-
-```
-// 圆形进度条
+#### 效果二 圆形进度条
+```c
 - (void)CircularButtonAction{
-    
-    //圆形进度条
     self.HUD = [[MBProgressHUD alloc] initWithView:self.view];
     
     [self.view addSubview:_HUD];
@@ -290,9 +267,9 @@ C-->D(依次生成所有组的所有单元格)
 }
 ```
 
-效果三 文字 加 菊花
+#### 效果三 文字 加 菊花
 
-```
+```c
 //   通常情况  文字  加 菊花
 - (void)GeneralButtonAction{
     //初始化进度框，置于当前的View当中
@@ -321,8 +298,8 @@ C-->D(依次生成所有组的所有单元格)
 
 ```
 
-效果四 自定义动图
-```
+#### 效果四 自定义动图
+```c
 //   自定义 动图
 - (void)CustomButtonAction{
     
