@@ -1,5 +1,166 @@
 [TOC]
 ## OC开发
+
+### UIButton
+1. 初始化
+```c
+// 方法一：通用UIView初始化方法
+UIButton *cameraBtn =UIButton.new;
+// 方法二：据不同的枚举，创建不同样式的按钮
+UIButton *btn = [UIButton buttonWithType:UIButtonTypeSystem];
+
+typedef NS_ENUM(NSInteger, UIButtonType) {
+    UIButtonTypeCustom = 0,                         // 自定义按钮
+    UIButtonTypeSystem NS_ENUM_AVAILABLE_IOS(7_0),  // 系统按钮--当前样式被选中情况下，背景颜色会被改变
+    UIButtonTypeDetailDisclosure,                   // 蓝色箭头按钮（用作详
+    UIButtonTypeInfoLight,                          // 亮色感叹号按钮
+    UIButtonTypeInfoDark,                           // 深色感叹号按钮
+    UIButtonTypeContactAdd,                         // 加号按钮
+    UIButtonTypeRoundedRect = UIButtonTypeSystem,   // Deprecated, use UIButtonTypeSystem instead
+};
+```
+2. 设置标题
+```c
+[btn setTitle:@"点我呀" forState:UIControlStateNormal];
+
+typedef NS_OPTIONS(NSUInteger, UIControlState) {
+    UIControlStateNormal       = 0,       // 正常状态
+    UIControlStateHighlighted  = 1 << 0,  // 高亮状态
+    UIControlStateDisabled     = 1 << 1,  // 失效状态
+    UIControlStateSelected     = 1 << 2,  // 选中状态,是否选中需要手动设置
+    UIControlStateFocused NS_ENUM_AVAILABLE_IOS(9_0) = 1 << 3,  // 聚焦状态 （iOS新加入 应该和3D Touch有关）
+    UIControlStateApplication  = 0x00FF0000,    // 当用做应用标志时
+    UIControlStateReserved     = 0xFF000000     // 框架预留 无意义
+};
+```
+3. 添加事件
+```c
+/*
+ * 添加事件：
+ * target: 执行者
+ * action：被执行的方法
+ * events：事件
+ * 当按钮的的事件被触发时，调用执行者的被执行方法--[self clickBtn:btn]
+ */
+[btn addTarget:self action:@selector(clickBtn:) forControlEvents:UIControlEventTouchUpInside];
+
+/*
+ * 移除事件
+ * 删除的参数必须要添加时候的参数一样，否则删除不能成功
+ */
+[btn removeTarget:self action:@selector(clickBtn:) forControlEvents:UIControlEventTouchUpInside];
+
+```
+* 事件状态：
+  * UIControlEventTouchDown
+    单点触摸按下事件：用户点触屏幕，或者又有新手指落下的时候。
+  * UIControlEventTouchDownRepeat
+    多点触摸按下事件，点触计数大于1：用户按下第二、三、或第四根手指的时候。
+  * UIControlEventTouchDragInside
+    当一次触摸在控件窗口内拖动时。
+  * UIControlEventTouchDragOutside
+    当一次触摸在控件窗口之外拖动时。
+  * UIControlEventTouchDragEnter
+    当一次触摸从控件窗口之外拖动到内部时。
+  * UIControlEventTouchDragExit
+    当一次触摸从控件窗口内部拖动到外部时。
+  * **<u>UIControlEventTouchUpInside</u>**
+    所有在控件之内触摸抬起事，一般用于按钮。
+  * UIControlEventTouchUpOutside
+    所有在控件之外触摸抬起事件(点触必须开始与控件内部才会发送通知)。
+  * UIControlEventTouchCancel
+    所有触摸取消事件，即一次触摸因为放上了太多手指而被取消，或者被上锁或者电话呼叫打断。
+  * UIControlEventTouchChanged
+    当控件的值发生改变时，发送通知。用于滑块、分段控件、以及其他取值的控件。你可以配置滑块控件何时发送通知，在滑块被放下时发送，或者在被拖动时发送。
+  * UIControlEventEditingDidBegin
+    当文本控件中开始编辑时发送通知。
+  * UIControlEventEditingChanged
+    当文本控件中的文本被改变时发送通知。
+  * UIControlEventEditingDidEnd
+    当文本控件中编辑结束时发送通知。
+  * UIControlEventEditingDidOnExit
+    当文本控件内通过按下回车键（或等价行为）结束编辑时，发送通知。
+  * UIControlEventAlltouchEvents
+    通知所有触摸事件。
+  * UIControlEventAllEditingEvents
+    通知所有关于文本编辑的事件。
+  * UIControlEventAllEvents
+    通知所有事件。
+4. 其他方法
+```c
+// 设置选中状态
+btn.selected = NO;
+// 设置背景色
+btn.backgroundColor = [UIColor redColor];
+// btn整体内容四周的间距
+btn.contentEdgeInsets = UIEdgeInsetsMake(15, 15, 15, 15); 
+// 标题四周间距
+btn.titleEdgeInsets = UIEdgeInsetsMake(15, 15, 15, 15); 
+// 图片四周间距
+btn.imageEdgeInsets = UIEdgeInsetsMake(15, 15, 15, 15);
+
+// 标题文本颜色
+[btn setTitleColor:[UIColor redColor] forState:UIControlStateNormal]; 
+
+// 标题阴影颜色
+[btn setTitleShadowColor:[UIColor redColor] forState:UIControlStateNormal]; 
+
+// 获取某种状态下的标题
+ NSString *titleStr = [btn titleForState:UIControlStateSelected];
+// 设置按钮前景图片---不会被拉伸，原比例显示, 会遮住按钮标题
+[btn setImage:[UIImage imageNamed:@"btnIcon"] forState:UIControlStateNormal]; 
+
+// 设置按钮背景图片---会被拉伸，充满整个btn, 按钮标题会显示在图片之上
+[btn setBackgroundImage:[UIImage imageNamed:@"btnBgImg"] forState:UIControlStateNormal];
+```
+### UIActionSheet
+UIActionSheet是用来选择的控件，比如微信朋友圈中的图片选择功能就是这个控件。
+1. 实现UIActionSheetDelegate
+2. 定义ActionSheet
+```c
+UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:@"这是actionSheet标题" delegate:self cancelButtonTitle:@"取了个消" destructiveButtonTitle:@"确了个定" otherButtonTitles:@"按钮1", @"按钮2", nil];
+
+_actionSheet.tag = 1001; //用于识别同一个view中不同的actionSheet
+```
+3. 显示ActionSheet
+```c
+[actionSheet showInView:self.view];
+```
+4. 按钮触发事件
+```c
+- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex{
+    switch (buttonIndex) {
+        case 1:
+            DLog(@"%ld-%@", (long)buttonIndex, @"按钮1")
+            break;
+        case 2:
+            DLog(@"%ld-%@", buttonIndex, @"按钮2")
+            break;
+        default:
+            DLog(@"%ld-%@", buttonIndex, @"其他")
+            break;
+    }
+}
+```
+5. 其他代理方法
+```c
+// 如果没有定义的委托,我们模拟一个点击取消按钮（没用过）
+- (void)actionSheetCancel:(UIActionSheet *)actionSheet;
+
+ //将要显示警告框时触发的方
+- (void)willPresentActionSheet:(UIActionSheet *)actionSheet; 
+
+ //已经显示提示框时触发的方法
+- (void)didPresentActionSheet:(UIActionSheet *)actionSheet; 
+
+//提示框将要消失时触发的方法
+- (void)actionSheet:(UIActionSheet *)actionSheet willDismissWithButtonIndex:(NSInteger)buttonIndex;
+
+//提示框已经消失时触发的方法
+- (void)actionSheet:(UIActionSheet *)actionSheet didDismissWithButtonIndex:(NSInteger)buttonIndex; 
+```
+
+
 ### UITableView
 #### 实现TableView基本步骤
 1. 初始化TableVIew
