@@ -73,6 +73,96 @@ int main(int argc, const char * argv[]) {
 
 ## 类和对象
 
+### 类定义
+
+在ObjC中定义一个类需要两个文件.h和.m：
+
+* **.h文件：**放类的声明，包括成员变量、属性和方法声明（事实上**.h文件不参与编译过程**）；关键字@interface声明一个类，同时它必须以@end结束，在这两个关键字中间声明相关成员；在声明Person类的同时可以看到它继承于NSObject，这是ObjC的基类，所有的类最终都继承于这个类（但是需要注意ObjC中的基类或者根类并不只有一个，例如NSProxy也是ObjC的基类），由于这个类在Foundation框架中定义，所以导入了<Foundation/Foundaton.h>（这么描述的意思是导入Foundation框架中的Foundation.h声明文件）；
+* **.m文件：**放属性、方法的具体实现；关键字@implementation用于实现某个类，同时必须以@end结尾，在这两个关键字中间实现具体的属性、方法；由于.m中使用了Person类，所以需要导入声明文件“Person.h”；
+
+Person.h:
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+@end
+```
+
+### 成员变量
+
+#### 修饰符
+
+成员变量定义在.h文件中，同时必须定义在类后面的{}内。成员的可访问性通过下面三个关键字声明：
+
+* @private 私有成员，只有当前类可以访问；
+* @protected 受保护成员，只有当前类或子类可以访问（如果没有添加任何修饰则默认为@protected）；
+* @public 公共成员，所有类均可访问；
+
+```objc
+#import <Foundation/Foundation.h>//由于使用了NSObject，所以导入此头文件
+
+//NSObject是基类，Person实现了NSObject
+@interface Person : NSObject{
+    /*成员变量必须包含在大括号中
+     *注意成员变量不声明任何关键字的话是默认可访问性@Protected
+     *注意在ObjC中不管是自定义的类还是系统类对象都必须是一个指针，例如下面的_name
+     */
+    @private
+    NSString *_name;//在ObjC中推荐成员变量名以_开头
+    int _age; //姓名和年龄两个成员变量是私有的
+    @protected
+    NSString *_nation; //只有子类可以访问
+    @public
+    float height; //身高是公开的
+}
+
+@end
+```
+
+> 在ObjC中可访问性修饰符除了这三种，还有一个**@package**不太常用，它类似于C#中的internal在框架内是公共的，但是框架外是私有的（也就是只能在一个框架内可以访问）。
+
+#### 变量访问
+1. ObjC中所有的对象类型的变量都必须加上“*”,在ObjC中对象其实就是一个指针（例如之前看到的NSString也是如此，但是基本类型不用加”*”）；
+2. ObjC中使用[]进行方法调用，在ObjC中方法调用的本质就是给这个对象或类发送一个消息；
+3. 在ObjC中类的实例化需要两个步骤：分配内存、初始化；
+4. 类的初始化调用了父类的init方法，如果使用默认初始化方法进行初始化（没有参数），内存分配和初始化可以简写成[Person new]；
+5. 公共成员的调用使用“->”操作符；
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+int main(int argc, const char * argv[]) {
+    @autoreleasepool {
+        Person *p=[Person alloc];
+        p=[p init];
+        //上面两句代码可以直接写成：Person *p=[[Person alloc] init];
+        //还可以写成：Person *p=[Person new];
+        
+        p->height=1.72;
+        NSLog(@"height=%.2f",p->height);//结果：height=1.72
+    }
+    return 0;
+}
+```
+
+
+
+
+
+
+
 
 
 
