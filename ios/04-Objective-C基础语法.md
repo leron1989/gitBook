@@ -157,13 +157,716 @@ int main(int argc, const char * argv[]) {
 }
 ```
 
+### 方法和属性
+
+#### 方法
+
+1. 在ObjC中方法分为静态方法和动态方法两种，动态方法就是对象的方法，静态方法就是类方法，这一点跟其他高级语言没有区别。
+2. ObjC中使用“-”定义动态方法，使用“+”定义静态方法。
+3. 如果一个方法在.h中有声明则该方法是公共方法，如果没有在.h中声明直接在.m中定义则该方法是私有方法，外部无法访问。
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>//由于使用了NSObject，所以导入此头文件
+
+//NSObject是基类，Person实现了NSObject
+@interface Person : NSObject{
+    /*成员变量必须包含在大括号中
+     *注意成员变量不声明任何关键字的话是@Protected，其他还有@Private和@Public
+     *注意在ObjC中不管是自定义的类还是系统类对象都必须是一个指针，例如下面的_name
+     */
+    @private
+    NSString *_name;//在ObjC中推荐变量名以_开头
+    int _age;
+    @protected
+    NSString *_nation;
+    @public
+    float height;
+}
+
+//声明一个动态方法，没有返回值
+-(void)setName:(NSString *)name;
+//声明一个静态方法，没有返回值
++(void)showMessage:(NSString *)info;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+//实现一个动态方法
+-(void)setName:(NSString *)name{
+    _name=name;
+}
+
+//实现一个静态方法
++(void)showMessage:(NSString *)info{
+    NSLog(@"%@",info);
+}
+@end
+```
+
+> 在ObjC中方法的参数类型、返回值类型需要放到()中，而且参数前必须使用冒号，并且此时**冒号是方法名的一部分**。
+
+当方法具有多个参数时：
+
+```objc
+-(void)setAge:(int)age andHeight:(NSString *)nation{
+    _age=age;
+    _nation=nation;
+}
+```
+
+> 其中andHeight可以省略不写，当然为了保证方法名更有意义建议书写时加上。
+
+#### 属性
+
+通常一个成员的访问不会直接通过成员变量而是通过属性暴漏给外界。在ObjC中属性的实现方式其实类似于Java中属性定义，通过对应的setter和getter方法进行实现。没错，上面setName其实就是属性的setter方法，但是在ObjC中gettter方法通常使用变量名，而不加“get”。下面就看一下年龄属性的实现
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>//由于使用了NSObject，所以导入此头文件
+
+//NSObject是基类，Person实现了NSObject
+@interface Person : NSObject{
+    /*成员变量必须包含在大括号中
+     *注意成员变量不声明任何关键字的话是@Protected，其他还有@Private和@Public
+     *注意在ObjC中不管是自定义的类还是系统类对象都必须是一个指针，例如下面的_name
+     */
+    @private
+    NSString *_name;//在ObjC中推荐变量名以_开头
+    int _age;
+    @protected
+    NSString *_nation;
+    @public
+    float height;
+}
+
+//声明一个动态方法，没有返回值
+-(void)setName:(NSString *)name;
+//声明一个静态方法，没有返回值
++(void)showMessage:(NSString *)info;
+
+//声明age的setter、getter方法
+-(int)age;
+-(void)setAge:(int)age;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+//实现一个动态方法
+-(void)setName:(NSString *)name{
+    _name=name;
+}
+
+//私有方法
+-(void)setAge:(int)age andHeight:(NSString *)nation{
+    _age=age;
+    _nation=nation;
+}
+
+//实现一个静态方法
++(void)showMessage:(NSString *)info{
+    NSLog(@"%@",info);
+}
+
+//实现age的setter、getter方法
+-(int)age{
+    return _age;
+}
+-(void)setAge:(int)age{
+    _age=age;
+}
+@end
+```
+
+> 通过上面的程序我们可以看到如果要定义一个属性，首先需要在.h中声明其次还要在.m中实现，而定义属性的代码基本都是类似的，那么有没有简单的方法呢，其实在ObjC中可以通过声明@property，同时通过@synthesize自动生成getter、setter方法（在新版本中甚至甚至都不用通过@synthesize只声明就可以使用）。我们通过一段代码来说明这个问题（为了方便大家查看代码，在下面的代码中暂时去掉前面定义的成员变量、属性等）
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject{
+    @public
+    NSString *birthday;
+    NSString *_position;
+    NSString *_degress;
+}
+
+@property NSString *birthday;
+
+@property NSString *position;
+
+@property NSString *degress;
+
+@property NSString *education;
+
+@property float weight;
+
+-(void)printInfo;
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+@synthesize birthday;
+@synthesize position;
+@synthesize degress=_degress;
+
+@synthesize education;
+
+-(void)printInfo{
+    NSLog(@"_weight=%.2f",_weight);
+    NSLog(@"education=%@",education);
+    NSLog(@"_degress=%@",_degress);
+}
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+int main(int argc, const char * argv[]) {
+    
+    Person *p=[[Person alloc]init];
+    p->birthday=@"1987-08-20";
+    p.birthday=@"1986-08-08";
+    p->_position=@"developer";
+    p.position=@"architect";
+    
+    p.degress=@"undergraduate";
+    
+    p.education=@"university";
+    
+    p.weight=60.0;
+    
+    NSLog(@"p->birthday=%@,p.birthday=%@",p->birthday,p.birthday);
+    //结果:p->birthday=1986-08-08,p.birthday=1986-08-08
+    
+    NSLog(@"p->_position=%@,p.position=%@",p->_position,p.position);
+    //结果：p->_position=developer,p.position=architect
+    
+    NSLog(@"p.weight=%.2f",p.weight);
+    //结果：p.weight=60.00
+    [p printInfo];
+    /*结果：
+     _weight=60.00
+     education=university
+     _degress=undergraduate*/
+    
+    return 0;
+}
+```
+
+> * 如果只声明一个属性a，不使用@synthesize实现：编译器会使用\_a作为属性的成员变量（如果没有定义成员变量\_a则会自动生成一个私有的成员变量\_a；如果已经定义了成员变量\_a则使用自定义的成员变量\_a。注意：如果此时定义的成员变量不是\_a而是a则此时会自动生成一个成员变量\_a，它跟自定义成员变量a没有任何关系）；
+>
+> * 如果声明了一个属性a，使用**@synthesize a**进行实现，但是实现过程中没有指定使用的成员变量（例如上面birthday）：则此时编译器会使用a作为属性的成员变量（如果定义了成员变量a，则使用自定义成员变量；如果此时没有定义则会自动生成一个私有的成员变量a，注意如果此时定义的是\_a则它跟生成的a成员变量没有任何关系）；
+>
+> * 如果声明了一个属性a，使用**@synthesize a=_a**进行实现，这个过程已经指定了使用的成员变量：此时会使用指定的成员变量作为属性变量；
+> * **此外再次强调一下，通过上面的方式定义变量的本质还是生成对应的gettter、setter方法（只是这个步骤编译器帮你完成了），如果通过@property定义了属性，同时在.m中又自定义实现了对应方法，则会使用自定义方法。**
+
+### self关键字
+
+在C#、Java中都有一个关键字this用于表示当前对象，其实在ObjC中也有一个类似的关键字self，只是self不仅可以表示当前对象还可以表示类本身，也就是说它既可以用在静态方法中又可以用在动态方法中。
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject
+
+@property NSString *name;
+@property int age;
+
+-(void)setName:(NSString *)name andAge:(int)age;
+
++(void)showMessage;
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+-(void)setName:(NSString *)name andAge:(int)age{
+//    _name=name;
+//    _age=age;
+    self.name=name;
+    self.age=age;
+}
+
++(void)printInfo{
+    NSLog(@"Hello,World!");
+}
+
++(void)showMessage{
+    [self printInfo];
+}
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+int main(int argc, const char * argv[]) {
+
+    Person *p=[[Person alloc]init];
+    [p setName:@"Kenshin" andAge:28];
+    [Person showMessage];
+    
+    return 0;
+}
+```
+
+#### 扩展
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject
+
+@property NSString *name;
+@property int age;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+-(void)setName:(NSString *)name{
+    self.name=name;
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+int main(int argc, const char * argv[]) {
+    
+    Person *p=[[Person alloc]init];
+    
+    p.name=@"Kenshin";
+    
+    return 0;
+}
+```
+
+> **如果运行上面的代码将会发生死循环，原因很简单，self.name=name本身就会调用Person的setName方法，如此反复就会造成循环操作，所有一般如果需要重写setter方法，可以直接写成_name=name,由此我们也可以看到为什么之前即使没有使用@property生成对应的属性方法，在定义成员变量时也都加上了下划线（这是一好的编码习惯）。**
+
+### 构造方法
+
+#### 自定义构造方法
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject
+
+@property NSString *name;
+@property int age;
+
+-(id)initWithName:(NSString *)name andAge:(int )age;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+//自定义构造方法
+-(id)initWithName:(NSString *)name andAge:(int)age{
+    if(self=[super init]){ //super代表父类
+        self.name=name;
+        self.age=age;
+    }
+    return self;
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+int main(int argc, const char * argv[]) {
+    
+    Person *p=[[Person alloc]initWithName:@"Kenshin" andAge:28];
+    NSLog(@"name=%@,age=%i",p.name,p.age);
+    //结果：name=Kenshin,age=28
+    return 0;
+}
+```
+
+> 在ObjC中super代表父类，通过调用父类的方法给当前对象赋值，然后判断这个对象是否为nil，如果不为空则依次给name、age属性赋值。
+
+#### 扩展
+
+通过自定义构造方法固然可以简化代码，但是在使用时还要手动申请内存，在ObjC中一般我们通过定义一个静态方法来解决这个问题。
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject
+
+@property NSString *name;
+@property int age;
+
+-(id)initWithName:(NSString *)name andAge:(int )age;
+
++(id)personWithName:(NSString *)name andAge:(int )age;
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+//自定义构造方法
+-(id)initWithName:(NSString *)name andAge:(int)age{
+    if(self=[super init]){ //super代表父类
+        self.name=name;
+        self.age=age;
+    }
+    return self;
+}
+
+//通过静态方法获得一个对象
++(id)personWithName:(NSString *)name andAge:(int)age{
+    Person *p=[[Person alloc]initWithName:name andAge:age];
+    return p;
+}
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+int main(int argc, const char * argv[]) {
+    
+    Person *p=[[Person alloc]initWithName:@"Kenshin" andAge:28];
+    NSLog(@"name=%@,age=%i",p.name,p.age);
+    //结果：name=Kenshin,age=28
+    
+    Person *p2=[Person personWithName:@"Kaoru" andAge:27];
+    NSLog(@"name=%@,age=%i",p2.name,p2.age);
+    //结果：name=Kaoru,age=27
+    return 0;
+}
+```
+
+### description方法
+
+在C#中每个类都有一个ToString()方法（java中叫做toString()）用于打印一个对象的信息，在ObjC中这个方法叫description，例如在前面的Person类中我们可以重写这个方法用于打印调试。
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+-(NSString *)description{
+    return [NSString stringWithFormat:@"{name:%@,age:%i}",self.name,self.age];
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+int main(int argc, const char * argv[]) {
+
+    Person *p=[[Person alloc]init];
+    p.name=@"Kenshin";
+    p.age=28;
+    
+    NSLog(@"%@",p);//此时会调用对象description方法返回对应的描述信息
+    /*结果：
+     name:Kenshin,age:28}
+     */
+    
+    return 0;
+}
+```
+
+> 1. 注意上面NSLog中的格式符是%@，当使用%@输出一个对象时，ObjC会调用个对象的description返回对应的信息进行输出，默认情况下如果我们不重写description方法，输出内容是类名和地址，例如Person则输出“<Person: 0x100202310>”。
+>
+> 2. 需要强调的是千万不要在description中打印输出self，因为当输出self时会调用该对象的description方法，如此一来就会造成死循环。
+
+### 继承
+
+继承是面向对象三大特征之一，既然ObjC是面向对象语言，当然同样支持继承。事实上前面定义的Person类本身就继承于NSObject，下面再简单看一个例子，这里部分假设我们还有一个Student类继承于Person类，而且这个类有一个分数（score）属性。
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject{
+    @protected
+    NSString *_nation;
+}
+
+#pragma mark - 属性
+#pragma mark 姓名
+@property (nonatomic,copy) NSString *name;
+#pragma mark 年龄
+@property (nonatomic,assign) int age;
+#pragma mark 籍贯
+@property (nonatomic,copy) NSString *nation;
+
+#pragma mark - 动态方法
+#pragma mark 带有参数的构造函数
+-(id)initWithName:(NSString *)name andAge:(int )age;
+
+#pragma mark - 静态方法
+#pragma mark 通过静态方法返回一个对象
++(id)personWithName:(NSString *)name andAge:(int )age;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+#pragma mark - 动态方法
+#pragma mark 带有参数的构造函数
+-(id)initWithName:(NSString *)name andAge:(int)age{
+    if(self=[super init]){ //super代表父类
+        self.name=name;
+        self.age=age;
+    }
+    return self;
+}
+
+#pragma mark - 静态方法
+#pragma mark 通过静态方法返回一个对象
++(id)personWithName:(NSString *)name andAge:(int)age{
+    Person *p=[[Person alloc]initWithName:name andAge:age];
+    return p;
+}
+
+#pragma mark - 重写方法
+#pragma mark 重写description
+-(NSString *)description{
+    return [NSString stringWithFormat:@"{name:%@,age:%i}",self.name,self.age];
+}
+
+@end
+```
+
+Student.h
+
+```objc
+#import "Person.h"
+
+@interface Student : Person
+
+#pragma mark - 属性
+#pragma mark 分数
+@property (nonatomic,assign) float score;
+
+#pragma mark - 动态方法
+#pragma mark 带有参数的构造函数
+-(id)initWithName:(NSString *)name andAge:(int )age andScore:(float)score;
+
+#pragma mark - 静态方法
+#pragma mark 通过静态方法返回一个对象
++(id)studentWithName:(NSString *)name andAge:(int )age andScore:(float)score;
+
+@end
+```
+
+Student.m
+
+```objc
+#import "Student.h"
+
+@implementation Student
+
+#pragma mark - 动态方法
+#pragma mark 带有参数的构造函数
+-(id)initWithName:(NSString *)name andAge:(int )age andScore:(float)score{
+    if(self=[super initWithName:name andAge:age]){
+        self.score=score;
+    }
+    return self;
+}
+
+#pragma mark - 静态方法
+#pragma mark 通过静态方法返回一个对象
++(id)studentWithName:(NSString *)name andAge:(int)age andScore:(float)score{
+    Student *s=[[Student alloc]initWithName:name andAge:age andScore:score];
+    return s;
+}
+
+#pragma mark - 重写方法
+#pragma mark 重写description
+-(NSString *)description{
+    return [NSString stringWithFormat:@"{name:%@,age:%i,nation:%@,scroe:%.2f}",self.name,self.age,self->_nation,self.score]; //注意这里访问了父类的属性和方法
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+#import "Student.h"
+
+int main(int argc, const char * argv[]) {
+    
+    Person *p=[Person personWithName:@"Kenshin" andAge:28];
+    NSLog(@"p=%@",p);
+    
+    Student *s=[Student studentWithName:@"Kaoru" andAge:27 andScore:100];
+    s.nation=@"henan";
+    NSLog(@"s=%@",s);
+    
+    
+    return 0;
+}
+```
+
+## <u>*协议、代码块、分类*</u>
+
+### 协议（protocol）
+
+ObjC中**@protocol**和其他语言的接口定义是类似的，只是在ObjC中interface关键字已经用于定义类了，因此它不会再像C#、Java中使用interface定义接口了。
+
+假设我们定义了一个动物的协议AnimalDelegate，人员Person这个类需要实现这个协议，请看下面的代码：
+
+AnimalDelegate.h
+
+```objc
+//定义一个协议
+@protocol AnimalDelegate <NSObject>
+
+@required //必须实现的方法
+-(void)eat;
+
+@optional //可选实现的方法
+-(void)run;
+-(void)say;
+-(void)sleep;
+
+@end
+```
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+#import "AnimalDelegate.h"
+
+@interface Person : NSObject<AnimalDelegate>
+
+-(void)eat;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+-(void)eat{
+    NSLog(@"eating...");
+}
+
+@end
+```
+
+> 1. 一个协议可以扩展自另一个协议，例如上面AnimalDelegate就扩展自NSObject，如果需要扩展多个协议中间使用逗号分隔；
+> 2. 和其他高级语言中接口不同的是协议中定义的方法不一定是必须实现的，我们可以通过关键字进行@required和@optional进行设置，如果不设置则默认是@required（**注意ObjC是弱语法，即使不实现必选方法编译运行也不会报错**）；
+> 3. 协议通过<>进行实现，一个类可以同时实现多个协议，中间通过逗号分隔；
+> 4. 协议的实现只能在类的声明上,不能放到类的实现上（也就是说必须写成@interface Person:NSObject<AnimalDelegate>而不能写成@implementation Person<AnimalDelegate>）；
+> 5. 协议中不能定义属性、成员变量等,只能定义方法；
+
+**说明：事实上在ObjC中协议的更多作用是用于约束一个类必须实现某些方法，而从面向对象的角度而言这个类跟接口并不一定存在某种自然关系，可能是两个完全不同意义上的事物,这种模式我们称之为代理模式（Delegation）。在Cocoa框架中大量采用这种模式实现数据和UI的分离，而且基本上所有的协议都是以Delegate结尾。**
 
 
 
 
 
+### 代码块（block）
 
 
+
+
+
+### 分类（category）
 
 
 
