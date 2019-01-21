@@ -800,6 +800,8 @@ int main(int argc, const char * argv[]) {
 
 ### 协议（protocol）
 
+#### 基础概念
+
 ObjC中**@protocol**和其他语言的接口定义是类似的，只是在ObjC中interface关键字已经用于定义类了，因此它不会再像C#、Java中使用interface定义接口了。
 
 假设我们定义了一个动物的协议AnimalDelegate，人员Person这个类需要实现这个协议，请看下面的代码：
@@ -851,22 +853,260 @@ Person.m
 > 1. 一个协议可以扩展自另一个协议，例如上面AnimalDelegate就扩展自NSObject，如果需要扩展多个协议中间使用逗号分隔；
 > 2. 和其他高级语言中接口不同的是协议中定义的方法不一定是必须实现的，我们可以通过关键字进行@required和@optional进行设置，如果不设置则默认是@required（**注意ObjC是弱语法，即使不实现必选方法编译运行也不会报错**）；
 > 3. 协议通过<>进行实现，一个类可以同时实现多个协议，中间通过逗号分隔；
-> 4. 协议的实现只能在类的声明上,不能放到类的实现上（也就是说必须写成@interface Person:NSObject<AnimalDelegate>而不能写成@implementation Person<AnimalDelegate>）；
+> 4. 协议的实现只能在类的声明上,不能放到类的实现上（也就是说必须写成@interface Person:NSObject\<AnimalDelegate\>而不能写成@implementation Person\<AnimalDelegate\>）；
 > 5. 协议中不能定义属性、成员变量等,只能定义方法；
 
 **说明：事实上在ObjC中协议的更多作用是用于约束一个类必须实现某些方法，而从面向对象的角度而言这个类跟接口并不一定存在某种自然关系，可能是两个完全不同意义上的事物,这种模式我们称之为代理模式（Delegation）。在Cocoa框架中大量采用这种模式实现数据和UI的分离，而且基本上所有的协议都是以Delegate结尾。**
 
+#### 协议用法
+
+1. 事件机制
+    现在假设需要设计一个按钮，我们知道按钮都是需要点击的，在其他语言中通常会引入事件机制，只要使用者订阅了点击事件，那么点击的时候就会触发执行这个事件（这是对象之间解耦的一种方式：代码注入）。但是在ObjC中没有事件的定义，而是使用代理来处理这个问题。首先在按钮中定义按钮的代理，同时使用协议约束这个代理（事件的触发者）必须实现协议中的某些方法，当按钮处理过程中查看代理是否实现了这个方法，如果实现了则调用这个方法。
+
+KCButton.h
+
+```objc
+#import <Foundation/Foundation.h>
+@class KCButton;
+
+//一个协议可以扩展另一个协议，例如KCButtonDelegate扩展了NSObject协议
+@protocol KCButtonDelegate <NSObject>
+
+@required //@required修饰的方法必须实现
+-(void)onClick:(KCButton *)button;
+
+@optional //@optional修饰的方法是可选实现的
+-(void)onMouseover:(KCButton *)button;
+-(void)onMouseout:(KCButton *)button;
+
+@end
+
+@interface KCButton : NSObject
+
+#pragma mark - 属性
+#pragma mark 代理属性，同时约定作为代理的对象必须实现KCButtonDelegate协议
+@property (nonatomic,retain) id<KCButtonDelegate> delegate;
+
+#pragma mark - 公共方法
+#pragma mark 点击方法
+-(void)click;
+
+@end
+```
+
+KCButton.m
+
+```objc
+#import "KCButton.h"
+
+@implementation KCButton
+
+-(void)click{
+    NSLog(@"Invoke KCButton's click method.");
+    //判断_delegate实例是否实现了onClick:方法（注意方法名是"onClick:",后面有个:）
+    //避免未实现ButtonDelegate的类也作为KCButton的监听
+    if([_delegate respondsToSelector:@selector(onClick:)]){
+        [_delegate onClick:self];
+    }
+}
+
+@end
+```
+
+MyListener.h
+
+```objc
+#import <Foundation/Foundation.h>
+@class KCButton;
+@protocol KCButtonDelegate;
+
+@interface MyListener : NSObject<KCButtonDelegate>
+-(void)onClick:(KCButton *)button;
+@end
+```
+
+MyListener.m
+
+```objc
+#import "MyListener.h"
+#import "KCButton.h"
+
+@implementation MyListener
+-(void)onClick:(KCButton *)button{
+    NSLog(@"Invoke MyListener's onClick method.The button is:%@.",button);
+}
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "KCButton.h"
+#import "MyListener.h"
+
+int main(int argc, const char * argv[]) {
+    @autoreleasepool {
+        
+        KCButton *button=[[KCButton alloc]init];
+        MyListener *listener=[[MyListener alloc]init];
+        button.delegate=listener;
+        [button click];
+        /* 结果：
+         Invoke KCButton's click method.
+         Invoke MyListener's onClick method.The button is:<KCButton: 0x1001034c0>.
+         */
+    }
+    return 0;
+}
+```
+> * id可以表示任何一个ObjC对象类型，类型后面的”<协议名>“用于约束作为这个属性的对象必须实现该协议(注意：使用id定义的对象类型不需要加“*”)；
+> * MyListener作为事件触发者，它实现了KCButtonDelegate代理（在ObjC中没有命名空间和包的概念，通常通过前缀进行类的划分，“KC”是我们自定义的前缀）
+> * 在.h文件中如果使用了另一个文件的类或协议我们可以通过@class或者@protocol进行声明，而不必导入这个文件，这样可以提高编译效率（**注意有些情况必须使用@class或@protocol，例如上面KCButton.h中上面声明的KCButtonDelegate协议中用到了KCButton类，而此文件下方的KCButton类声明中又使用了KCButtonDelegate，从而形成在一个文件中互相引用关系，此时必须使用@class或者@protocol声明，否则编译阶段会报错**），但是在.m文件中则必须导入对应的类声明文件或协议文件（如果不导入虽然语法检查可以通过但是编译链接会报错）；
+> * 使用respondsToSelector方法可以判断一个对象是否实现了某个方法（需要注意方法名不是”onClick”而是“onClick:”，冒号也是方法名的一部分）；
 
 
 
 
 ### 代码块（block）
 
+Block就是一个函数体（匿名函数），它是ObjC对于闭包的实现，在块状中我们可以持有或引用局部变量（不禁想到了lambda表达式），同时利用Block你可以将一个操作作为一个参数进行传递（是不是想起了C语言中的函数指针）。
+
+KCButton.h
+
+```objc
+#import <Foundation/Foundation.h>
+@class KCButton;
+typedef void(^KCButtonClick)(KCButton *);
+
+@interface KCButton : NSObject
+
+#pragma mark - 属性
+#pragma mark 点击操作属性
+@property (nonatomic,copy) KCButtonClick onClick;
+//上面的属性定义等价于下面的代码
+//@property (nonatomic,copy) void(^ onClick)(KCButton *);
+
+#pragma mark - 公共方法
+#pragma mark 点击方法
+-(void)click;
+@end
+```
+
+KCButton.m
+
+```objc
+#import "KCButton.h"
 
 
+@implementation KCButton
 
+-(void)click{
+    NSLog(@"Invoke KCButton's click method.");
+    if (_onClick) {
+        _onClick(self);
+    }
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "KCButton.h"
+
+
+int main(int argc, const char * argv[]) {
+
+    KCButton *button=[[KCButton alloc]init];
+    button.onClick=^(KCButton *btn){
+        NSLog(@"Invoke onClick method.The button is:%@.",btn);
+    };
+    [button click];
+    /*结果：
+     Invoke KCButton's click method.
+     Invoke onClick method.The button is:<KCButton: 0x1006011f0>.
+     */
+    
+    
+    return 0;
+}
+```
+
+> 1. Block类型定义：**返回值类型(^ 变量名)(参数列表)**（注意Block也是一种类型）；
+> 2. Block的typedef定义：**返回值类型(^类型名称)(参数列表)**；
+> 3. Block的实现：**^(参数列表){操作主体}**；
+> 4. Block中可以读取块外面定义的变量但是不能修改，如果要修改那么这个变量必须声明_block修饰；
 
 ### 分类（category）
+
+当我们不改变原有代码为一个类扩展其他功能时我们可以考虑继承这个类进行实现，但是这样一来使用时就必须定义成新实现的子类才能拥有扩展的新功能。如何在不改变原有类的情况下扩展新功能又可以在使用时不必定义新类型呢？我们知道如果在C#中可以使用扩展方法，其实在ObjC中也有类似的实现，就是分类Category。利用分类，我们就可以在ObjC中动态的为已有类添加新的行为（特别是系统或框架中的类）。在C#中字符串有一个Trim()方法用于去掉字符串前后的空格，使用起来特别方便，但是在ObjC中却没有这个方法，这里我们不妨通过Category给NSString添加一个stringByTrim()方法：
+
+NSString+Extend.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface NSString (Extend)
+-(NSString *)stringByTrim;
+@end
+```
+
+NSString+Extend.m
+
+```objc
+#import "NSString+Extend.h"
+
+@implementation NSString (Extend)
+-(NSString *)stringByTrim{
+    NSCharacterSet *character= [NSCharacterSet whitespaceCharacterSet];
+    return [self stringByTrimmingCharactersInSet:character];
+}
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "NSString+Extend.h"
+
+
+int main(int argc, const char * argv[]) {
+
+    NSString *name=@" Kenshin Cui ";
+    name=[name stringByTrim];
+    NSLog(@"I'm %@!",name); //结果：I'm Kenshin Cui!
+    
+    return 0;
+}
+```
+
+> 分类文件名一般是“原有类名+分类名称”，分类的定义是通过在原有类名后加上”(分类名)”来定义的（注意声明文件.h和实现文件.m都是如此）。
+
+## 内存管理
+
+
+
+
+
+
+
+## KVC、KVO
+
+
+
+
+
+
+
+
+
+## Foundation框架
+
+
 
 
 
