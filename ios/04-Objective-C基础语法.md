@@ -1086,7 +1086,349 @@ int main(int argc, const char * argv[]) {
 
 > 分类文件名一般是“原有类名+分类名称”，分类的定义是通过在原有类名后加上”(分类名)”来定义的（注意声明文件.h和实现文件.m都是如此）。
 
-## 内存管理
+## *<u>内存管理</u>*
+
+### 概念
+
+程序运行过程中要创建大量的对象，和其他高级语言类似，**在ObjC中对象时存储在堆中的，系统并不会自动释放堆中的内存（注意基本类型是由系统自己管理的，放在栈上）**。如果一个对象创建并使用后没有得到及时释放那么就会占用大量内存。其他高级语言如C#、Java都是通过垃圾回收来（GC）解决这个问题的，但在OjbC中并没有类似的垃圾回收机制，因此它的内存管理就需要由开发人员手动维护。
+
+### 引用计数器
+
+在Xcode4.2及之后的版本中由于引入了ARC（Automatic Reference Counting）机制,程序编译时Xcode可以自动给你的代码添加内存释放代码，如果编写手动释放代码Xcode会报错，因此在今天的内容中如果你使用的是Xcode4.2之后的版本（相信现在大部分朋友用的版本都比这个要高），必须手动关闭ARC，这样才有助于你理解ObjC的内存回收机制。
+
+> ObjC中的内存管理机制跟C语言中指针的内容是同样重要的，要开发一个程序并不难，但是优秀的程序则更测重于内存管理，它们往往占用内存更少，运行更加流畅。虽然在新版Xcode引入了ARC，但是很多时候它并不能完全解决你的问题。在Xcode中关闭ARC：项目属性—Build Settings--搜索“garbage”找到Objective-C Automatic Reference Counting设置为No即可。
+
+#### 内存管理原理
+
+​	在C#、Java中都有GC在自动管理内存，当我们实例化一个对象之后通常会有一个变量来引用这个对象（变量中存储对象地址），当这个引用变量不再使用之后（也就是不再引用这个对象）此时GC就会自动回收这个对象，简单的说就是：当一个对象没有任何变量引用的时候就会被回收。
+
+​	在ObjC中内存的管理是依赖对象引用计数器来进行的：**在ObjC中每个对象内部都有一个与之对应的整数（retainCount），叫“引用计数器”，当一个对象在创建之后它的引用计数器为1，当调用这个对象的alloc、retain、new、copy方法之后引用计数器自动在原来的基础上加1（ObjC中调用一个对象的方法就是给这个对象发送一个消息），当调用这个对象的release方法之后它的引用计数器减1，如果一个对象的引用计数器为0，则系统会自动调用这个对象的dealloc方法来销毁这个对象**。
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject
+
+#pragma mark - 属性
+@property (nonatomic,copy) NSString *name;
+@property (nonatomic,assign) int age;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+#pragma mark - 覆盖方法
+#pragma mark 重写dealloc方法，在这个方法中通常进行对象释放操作
+-(void)dealloc{
+    NSLog(@"Invoke Person's dealloc method.");
+    [super dealloc];//注意最后一定要调用父类的dealloc方法（两个目的：一是父类可能有其他引用对象需要释放；二是：当前对象真正的释放操作是在super的dealloc中完成的）
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+void Test1(){
+    Person *p=[[Person alloc]init]; //调用alloc，引用计数器+1
+    p.name=@"Kenshin";
+    p.age=28;
+    
+    NSLog(@"retainCount=%lu",[p retainCount]);
+    //结果：retainCount=1
+    
+    [p release];
+    //结果：Invoke Person's dealloc method.
+    
+    
+    
+    //上面调用过release方法，p指向的对象就会被销毁，但是此时变量p中还存放着Person对象的地址，
+    //如果不设置p=nil，则p就是一个野指针，它指向的内存已经不属于这个程序，因此是很危险的
+    p=nil;
+    //如果不设置p=nil，此时如果再调用对象release会报错，但是如果此时p已经是空指针了，
+    //则在ObjC中给空指针发送消息是不会报错的
+    [p release];
+}
+
+void Test2(){
+    Person *p=[[Person alloc]init];
+    p.name=@"Kenshin";
+    p.age=28;
+    
+    NSLog(@"retainCount=%lu",[p retainCount]);
+    //结果：retainCount=1
+    
+    [p retain];//引用计数器+1
+    NSLog(@"retainCount=%lu",[p retainCount]);
+    //结果：retainCount=2
+    
+    [p release];//调用1次release引用计数器-1
+    NSLog(@"retainCount=%lu",[p retainCount]);
+    //结果：retainCount=1
+    [p release];
+    //结果：Invoke Person's dealloc method.
+    p=nil;
+}
+
+int main(int argc, const char * argv[]) {
+    @autoreleasepool {
+        Test1();
+    }
+    return 0;
+}
+```
+
+> 1. 如果一个对象被释放之后，那么最后引用它的变量我们手动设置为nil，否则可能造成野指针错误，而且需要注意在ObjC中给空对象发送消息是不会引起错误的。
+>
+> 2. 野指针错误形式在Xcode中通常表现为：**Thread 1：EXC_BAD_ACCESS(code=EXC_I386_GPFLT)**错误。因为你访问了一块已经不属于你的内存。
+
+#### 内存释放的原则
+
+手动管理内存有时候并不容易，因为对象的引用有时候是错综复杂的，对象之间可能互相交叉引用，此时需要遵循一个法则：**<u>谁创建，谁释放</u>**。
+
+
+
+假设现在有一个人员Person类，每个Person可能会购买一辆汽车Car，通常情况下购买汽车这个活动我们可能会单独抽取到一个方法中，同时买车的过程中我们可能会多看几辆来最终确定理想的车，现在我们的代码如下：
+
+Car.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Car : NSObject
+
+#pragma mark - 属性
+#pragma mark 车牌号
+@property (nonatomic,copy) NSString *no;
+
+#pragma mark - 公共方法
+#pragma mark 运行方法
+-(void)run;
+
+@end
+```
+
+Car.m
+
+```objc
+#import "Car.h"
+
+@implementation Car
+
+#pragma mark - 公共方法
+#pragma mark 运行方法
+-(void)run{
+    NSLog(@"Car(%@) run.",self.no);
+}
+
+#pragma mark - 覆盖方法
+#pragma mark 重写dealloc方法
+-(void)dealloc{
+    
+    NSLog(@"Invoke Car(%@) dealloc method.",self.no);
+    [super dealloc];
+}
+@end
+```
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+@class Car;
+
+@interface Person : NSObject{
+    Car *_car;
+}
+
+#pragma mark - 属性
+#pragma mark 姓名
+@property (nonatomic,copy) NSString *name;
+
+#pragma mark - 公共方法
+#pragma mark Car属性的set方法
+-(void)setCar:(Car *)car;
+#pragma mark  Car属性的get方法
+-(Car *)car;
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+#import "Car.h"
+
+@implementation Person
+
+#pragma mark - 公共方法
+#pragma mark Car属性的set方法
+-(void)setCar:(Car *)car{
+    if (_car!=car) { //首先判断要赋值的变量和当前成员变量是不是同一个变量
+        [_car release]; //释放之前的对象
+        _car=[car retain];//赋值时重新retain
+    }
+}
+#pragma mark  Car属性的get方法
+-(Car *)car{
+    return _car;
+}
+
+#pragma mark - 覆盖方法
+#pragma mark 重写dealloc方法
+-(void)dealloc{
+    NSLog(@"Invoke Person(%@) dealloc method.",self.name);
+    [_car release];//在此释放对象，即使没有赋值过由于空指针也不会出错
+    [super dealloc];
+}
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+#import "Car.h"
+
+void getCar(Person *p){
+    Car *car1=[[Car alloc]init];
+    car1.no=@"888888";
+    
+    p.car=car1;
+    
+    NSLog(@"retainCount(p)=%lu",[p retainCount]);
+    
+    Car *car2=[[Car alloc]init];
+    car2.no=@"666666";
+    
+    [car1 release]; // car1对象在给person赋值时调用了retain函数，导致引用计算+1，也就是2，因此release后的引用计数为1，并不会调用Car的dealloc方法
+    car1=nil;
+    
+    [car2 release];
+    car2=nil;
+}
+
+int main(int argc, const char * argv[]) {
+    @autoreleasepool {
+        Person *p=[[Person alloc]init];
+        p.name=@"Kenshin";
+        
+        getCar(p);
+        
+        [p.car run];
+        
+        [p release];
+        
+        p=nil;
+        
+    }
+    return 0;
+}
+```
+
+输出结果为：
+
+```
+2019-01-22 12:23:19.487479+0800 MemoryManageDemo[48584:1541829] retainCount(p)=1
+2019-01-22 12:23:19.487756+0800 MemoryManageDemo[48584:1541829] Invoke Car(666666) dealloc method.
+2019-01-22 12:23:19.487784+0800 MemoryManageDemo[48584:1541829] Car(888888) run.
+2019-01-22 12:23:19.487836+0800 MemoryManageDemo[48584:1541829] Invoke Person(Kenshin) dealloc method.
+2019-01-22 12:23:19.487864+0800 MemoryManageDemo[48584:1541829] Invoke Car(888888) dealloc method.
+Program ended with exit code: 0
+```
+
+从运行结果来看创建的三个对象p、car1、car2都被回收了，而且[p.car run]也能顺利运行，已经达到了我们的需求。但是这里需要重点解释一下setCar方法的实现,setCar方法中为什么没有写成如下形式：
+
+```objc
+-(void)setCar:(Car *)car{
+    _car=car;
+}
+```
+
+前面在我们说到属性的定义时不是都采用的这种方式吗？
+
+根据前面说到的内存释放原则，getCar方法完全符合，在这个方法中定义的两个对象car1、car2也都是在这个方法中释放的，包括main函数中的p对象也是在main函数中定义和释放的。但是如果发现调用完getCar方法之后紧接着调用了汽车的run方法，当然这在程序设计和开发过程中应该是再普通不过的设计了。如果setCar写成“_car=car”的形式，当调用完getCar方法后，人员的car属性被释放了，此时调用run方法是会报错的（大家自己可以试试）。但是如下的方式却不会有问题：
+
+```objc
+-(void)setCar:(Car *)car{
+    if (_car!=car) { //首先判断要赋值的变量和当前成员变量是不是同一个变量
+        [_car release]; //释放之前的对象
+        _car=[car retain];//赋值时重新retain
+    }
+}
+```
+
+**因为在这个方法中我们通过[car retain]保证每次属性赋值的时候对象引用计数器+1,这样一来调用过getCar方法可以保证人员的car属性不会被释放，其次为了保证上一次的赋值对象（car1）能够正常释放，我们在赋新值之前对原有的值进行release操作。最后在Person的dealloc方法中对_car进行一次release操作（因为setCar中做了一次retain操作）保证_car能正常回收。**
+
+### 属性参数
+
+像上面这样编写setCar方法的情况是比较多的，那么如何使用@property进行自动实现呢？答案就是使用属性参数，例如上面car属性的setter方法，可以通过@property定义如下：
+
+```objc
+@property (nonatomic,retain) Car *car;
+```
+
+你会发现此刻我们不必手动实现car的getter、setter方法程序仍然没有内存泄露。其实大家也应该都已经看到前面Person的name属性定义的时候我们同样加上了（nonatomic,copy）参数，这些参数到底是什么意思呢？
+
+![4-4-1](.\img\4-4-1.png)
+
+@property的参数分为三类，也就是说参数最多可以有三个，中间用逗号分隔，每类参数可以从上表三类参数中人选一个。如果不进行设置或者只设置其中一类参数，程序会使用三类中的各个默认参数，默认参数：(atomic,readwrite,assign)
+
+1. 一般情况下如果在多线程开发中一个属性可能会被两个及两个以上的线程同时访问，此时可以考虑atomic属性，否则建议使用nonatomic，不加锁，效率较高；
+2. readwirte方法会生成getter、setter两个方法，如果使用readonly则只生成getter方法；
+3. 关于set方法处理需要特别说明，假设我们定义一个属性a，这里列出三种方式的生成代码：
+* assign，用于基本数据类型
+
+```objc
+-(void)setA:(int)a{
+    _a=a;
+}
+```
+
+
+   * retain，通常用于非字符串对象
+
+```objc
+-(void)setA:(Car *)a{
+	if(_a!=a){
+		[_a release];
+		_a=[a retain];
+	}
+}
+```
+
+   * copy，通常用于字符串对象、block、NSArray、NSDictionary
+
+```objc
+-(void)setA:(NSString *)a{
+	if(_a!=a){
+		[_a release];
+		_a=[a copy];
+	}
+}
+```
+
+> **备注：本文基于MRC进行介绍，ARC下的情况不同，请参阅其他文章，例如ARC下基本数据类型默认的属性参数为(atomic,readwrite,assign)，对象类型默认的属性参数为(atomic,readwrite,strong)**
+
+### 自动释放池
+
+
+
+
+
 
 
 
