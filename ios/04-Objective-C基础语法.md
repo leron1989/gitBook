@@ -1425,19 +1425,572 @@ Program ended with exit code: 0
 
 ### 自动释放池
 
+在ObjC中也有一种内存自动释放的机制叫做“自动引用计数”（或“自动释放池”），与C#、Java不同的是，这只是一种半自动的机制，有些操作还是需要我们手动设置的。自动内存释放使用@autoreleasepool关键字声明一个代码块，如果一个对象在初始化时调用了autorelase方法，那么当代码块执行完之后，在块中调用过autorelease方法的对象都会自动调用一次release方法。这样一来就起到了自动释放的作用，同时对象的销毁过程也得到了延迟（统一调用release方法）。看下面的代码：
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject
+
+#pragma mark - 属性
+#pragma mark 姓名
+@property (nonatomic,copy) NSString *name;
+
+#pragma mark - 公共方法
+#pragma mark 带参数的构造函数
+-(Person *)initWithName:(NSString *)name;
+#pragma mark 取得一个对象（静态方法）
++(Person *)personWithName:(NSString *)name;
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+#pragma mark - 公共方法
+#pragma mark 带参数的构造函数
+-(Person *)initWithName:(NSString *)name{
+    if(self=[super init]){
+        self.name=name;
+    }
+    return self;
+}
+#pragma mark 取得一个对象（静态方法）
++(Person *)personWithName:(NSString *)name{
+    Person *p=[[[Person alloc]initWithName:name] autorelease];//注意这里调用了autorelease
+    return p;
+}
+
+#pragma mark - 覆盖方法
+#pragma mark 重写dealloc方法
+-(void)dealloc{
+    NSLog(@"Invoke Person(%@) dealloc method.",self.name);
+    [super dealloc];
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
 
 
+int main(int argc, const char * argv[]) {
 
+    @autoreleasepool {
+        Person *person1=[[Person alloc]init];
+        [person1 autorelease];//调用了autorelease方法后面就不需要手动调用release方法了
+        person1.name=@"Kenshin";//由于autorelease是延迟释放，所以这里仍然可以使用person1
+        
+        Person *person2=[[[Person alloc]initWithName:@"Kaoru"] autorelease];//调用了autorelease方法
+        
+        Person *person3=[Person personWithName:@"rosa"];//内部已经调用了autorelease，所以不需要手动释放，这也符合内存管理原则，因为这里并没有alloc所以不需要release或者autorelease
+        
+        Person *person4=[Person personWithName:@"jack"];
+        [person4 retain];
+    }
+    /*结果：
+     Invoke Person(rosa) dealloc method.
+     Invoke Person(Kaoru) dealloc method.
+     Invoke Person(Kenshin) dealloc method.
+     */
+    
+    return 0;
+}
+```
 
+当上面@autoreleaespool代码块执行完之后，三个对象都得到了释放，但是person4并没有释放，原因很简单，由于我们手动retain了一次，当自动释放池释放后调用四个对的release方法，当调用完person4的release之后它的引用计数器为1，所有它并没有释放（这是一个反例，会造成内存泄露）；autorelase方法将一个对象的内存释放延迟到了自动释放池销毁的时候，因此上面person1，调用完autorelase之后它还存在，因此给name赋值不会有任何问题；在ObjC中通常如果一个静态方法返回一个对象本身的话，在静态方法中我们需要调用autorelease方法，因为按照内存释放原则，在外部使用时不会进行alloc操作也就不需要再调用release或者autorelase，所以这个操作需要放到静态方法内部完成。
 
+对于自动内存释放简单总结一下：
 
-
-
-
+> 1. autorelease方法不会改变对象的引用计数器，只是将这个对象放到自动释放池中；
+> 2. 自动释放池实质是当自动释放池销毁后调用对象的release方法，不一定就能销毁对象（例如如果一个对象的引用计数器>1则此时就无法销毁）；
+> 3. 由于自动释放池最后统一销毁对象，因此如果一个操作比较占用内存（对象比较多或者对象占用资源比较多），最好不要放到自动释放池或者考虑放到多个自动释放池；
+> 4. ObjC中类库中的静态方法一般都不需要手动释放，内部已经调用了autorelease方法；
 
 
 ## KVC、KVO
 
+### 键值编码（KVC）
+
+我们知道在C#中可以通过反射读写一个对象的属性，有时候这种方式特别方便，因为你可以利用字符串的方式去动态控制一个对象。其实由于ObjC的语言特性，你根部不必进行任何操作就可以进行属性的动态读写，这种方式就是Key Value Coding（简称KVC）。
+
+KVC的操作方法由NSKeyValueCoding协议提供，而NSObject就实现了这个协议，也就是说ObjC中几乎所有的对象都支持KVC操作，常用的KVC操作方法如下：
+
+* 动态设置： **setValue:属性值 forKey:属性名**（用于简单路径）、**setValue:属性值 forKeyPath:属性路径**（用于复合路径，例如Person有一个Account类型的属性，那么person.account就是一个复合属性）
+* 动态读取： **valueForKey:属性名** 、**valueForKeyPath:属性名**（用于复合路径）
+
+下面通过一个例子来理解KVC
+
+Account.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Account : NSObject
+#pragma mark - 属性
+#pragma mark 余额
+@property (nonatomic,assign) float balance;
+@end
+```
+
+Account.m
+
+```objc
+#import "Account.h"
+
+@implementation Account
+
+@end
+```
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+@class Account;
+
+@interface Person : NSObject{
+    @private
+    int _age;
+}
+#pragma mark - 属性
+#pragma mark 姓名
+@property (nonatomic,copy) NSString *name;
+#pragma mark 账户
+@property (nonatomic,retain) Account *account;
+
+#pragma mark - 公共方法
+#pragma mark 显示人员信息
+-(void)showMessage;
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+#pragma mark - 公共方法
+#pragma mark 显示人员信息
+-(void)showMessage{
+    NSLog(@"name=%@,age=%d",_name,_age);
+}
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+#import "Account.h"
+
+int main(int argc, const char * argv[]) {
+    @autoreleasepool {
+        
+        Person *person1=[[Person alloc]init];
+        [person1 setValue:@"Kenshin" forKey:@"name"];
+        [person1 setValue:@28 forKey:@"age"];//注意即使一个私有变量仍然可以访问
+        
+        [person1 showMessage];
+        //结果：name=Kenshin,age=28
+        NSLog(@"person1's name is :%@,age is :%@",person1.name,[person1 valueForKey:@"age"]);
+        //结果：person1's name is :Kenshin,age is :28
+        
+        
+        
+        
+        Account *account1=[[Account alloc]init];
+        person1.account=account1;//注意这一步一定要先给account属性赋值，否则下面按路径赋值无法成功，因为account为nil，当然这一步骤也可以写成:[person1 setValue:account1 forKeyPath:@"account"];
+        
+        [person1 setValue:@100000000.0 forKeyPath:@"account.balance"];
+        
+        NSLog(@"person1's balance is :%.2f",[[person1 valueForKeyPath:@"account.balance"] floatValue]);
+        //结果：person1's balance is :100000000.00 
+    }
+    return 0;
+}
+```
+KVC使用起来比较简单，但是它如何查找一个属性进行读取呢？具体查找规则（假设现在要利用KVC对a进行读取）：
+
+* 如果是动态设置属性，则优先考虑调用setA方法，如果没有该方法则优先考虑搜索成员变量_a,如果仍然不存在则搜索成员变量a，如果最后仍然没搜索到则会调用这个类的setValue:forUndefinedKey：方法(注意搜索过程中不管这些方法、成员变量是私有的还是公共的都能正确设置)；
+* 如果是动态读取属性，则优先考虑调用a方法（属性a的getter方法），如果没有搜索到则会优先搜索成员变量_a，如果仍然不存在则搜索成员变量a，如果最后仍然没搜索到则会调用这个类的valueforUndefinedKey:方法(注意搜索过程中不管这些方法、成员变量是私有的还是公共的都能正确读取)；
+
+### 键值监听（KVO）
+
+我们知道在WPF、Silverlight中都有一种双向绑定机制，如果数据模型修改了之后会立即反映到UI视图上，类似的还有如今比较流行的基于MVVM设计模式的前端框架，例如Knockout.js。其实在ObjC中原生就支持这种机制，它叫做Key Value Observing（简称KVO）。KVO其实是一种观察者模式，利用它可以很容易实现视图组件和数据模型的分离，当数据模型的属性值改变之后作为监听器的视图组件就会被激发，激发时就会回调监听器自身。在ObjC中要实现KVO则必须实现NSKeyValueObServing协议，不过幸运的是NSObject已经实现了该协议，因此几乎所有的ObjC对象都可以使用KVO。
+
+在ObjC中使用KVO操作常用的方法如下：
+* 注册指定Key路径的监听器： **addObserver: forKeyPath: options:  context:**
+* 删除指定Key路径的监听器： **removeObserver: forKeyPath**、**removeObserver: forKeyPath: context:**
+* 回调监听： **observeValueForKeyPath: ofObject: change: context:**
+
+KVO的使用步骤也比较简单：
+1. 通过addObserver: forKeyPath: options: context:为被监听对象（它通常是数据模型）注册监听器
+2. 重写监听器的observeValueForKeyPath: ofObject: change: context:方法
+
+由于我们还没有介绍过IOS的界面编程，这里我们还是在上面的例子基础上继续扩展，假设当我们的账户余额balance变动之后我们希望用户可以及时获得通知。那么此时Account就作为我们的被监听对象，需要Person为它注册监听（使用addObserver: forKeyPath: options: context:）;而人员Person作为监听器需要重写它的observeValueForKeyPath: ofObject: change: context:方法，当监听的余额发生改变后会回调监听器Person监听方法（observeValueForKeyPath: ofObject: change: context:）。下面通过代码模拟上面的过程：
+
+Account.h
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Account : NSObject
+#pragma mark - 属性
+#pragma mark 余额
+@property (nonatomic,assign) float balance;
+@end
+```
+
+Account.m
+```objc
+#import "Account.h"
+
+@implementation Account
+
+@end
+```
+
+Person.h
+```objc
+#import <Foundation/Foundation.h>
+@class Account;
+
+@interface Person : NSObject{
+    @private
+    int _age;
+}
+#pragma mark - 属性
+#pragma mark 姓名
+@property (nonatomic,copy) NSString *name;
+#pragma mark 账户
+@property (nonatomic,retain) Account *account;
+
+#pragma mark - 公共方法
+#pragma mark 显示人员信息
+-(void)showMessage;
+@end
+```
+
+Person.m
+```objc
+#import "Person.h"
+#import "Account.h"
+
+@implementation Person
+
+#pragma mark - 公共方法
+#pragma mark 显示人员信息
+-(void)showMessage{
+    NSLog(@"name=%@,age=%d",_name,_age);
+}
+
+#pragma mark 设置人员账户
+-(void)setAccount:(Account *)account{
+    _account=account;
+    //添加对Account的监听
+    [self.account addObserver:self forKeyPath:@"balance" options:NSKeyValueObservingOptionNew context:nil];
+}
+
+#pragma mark - 覆盖方法
+#pragma mark 重写observeValueForKeyPath方法，当账户余额变化后此处获得通知
+-(void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context{
+    if([keyPath isEqualToString:@"balance"]){//这里只处理balance属性
+        NSLog(@"keyPath=%@,object=%@,newValue=%.2f,context=%@",keyPath,object,[[change objectForKey:@"new"] floatValue],context);
+    }
+}
+#pragma mark 重写销毁方法
+-(void)dealloc{
+    [self.account removeObserver:self forKeyPath:@"balance"];//移除监听
+    //[super dealloc];//注意启用了ARC，此处不需要调用
+}
+@end
+```
+
+main.m
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+#import "Account.h"
+
+int main(int argc, const char * argv[]) {
+    @autoreleasepool {
+        
+        Person *person1=[[Person alloc]init];
+        person1.name=@"Kenshin";
+        Account *account1=[[Account alloc]init];
+        account1.balance=100000000.0;
+        person1.account=account1;
+        
+        account1.balance=200000000.0;//注意执行到这一步会触发监听器回调函数observeValueForKeyPath: ofObject: change: context:
+        //结果：keyPath=balance,object=<Account: 0x100103aa0>,newValue=200000000.00,context=(null)
+        
+        
+    }
+    return 0;
+}
+```
+在上面的代码中我们在给人员分配账户时给账户的balance属性添加了监听，并且在监听回调方法中输出了监听到的信息，同时在对象销毁时移除监听，这就构成了一个典型的KVO应用。
+
+
+## <u>*Foundation框架*</u>
+
+### 概述
+
+Cocoa是什么呢？
+
+Cocoa不是一种编程语言（它可以运行多种编程语言），它也不是一个开发工具（通过命令行我们仍然可以开发Cocoa程序），它是创建Mac OS X和IOS程序的原生面向对象API，为这两者应用提供了编程环境。
+
+我们通常称为“Cocoa框架”，事实上Cocoa本身是一个框架的集合，它包含了众多子框架，其中最重要的要数“Foundation”和“UIKit”。前者是框架的基础，和界面无关，其中包含了大量常用的API；后者是基础的UI类库，以后我们在IOS开发中会经常用到。这两个框架在系统中的位置如下图：
+
+![4-5-1](.\img\4-5-1.jpg)
+
+#### Foundation框架API概览
+
+其实所有的Mac OS X和IOS程序都是由大量的对象构成，而这些对象的根对象都是NSObject，NSObject就处在Foundation框架之中，具体的类结构如下：
+
+![4-5-2](.\img\4-5-2.jpg)
+
+![4-5-3](.\img\4-5-3.jpg)
+
+![4-5-4](.\img\4-5-4.jpg)
+
+通常我们会将他们分为几类：
+
+1. 值对象
+2. 集合
+3. 操作系统服务：文件系统、URL、进程通讯
+4. 通知
+5. 归档和序列化
+6. 表达式和条件判断
+7. Objective-C语言服务
+
+#### UIKit架构概览
+
+UIKit主要用于界面构架，这里我们不妨也看一下它的类结构：
+
+![4-5-5](.\img\4-5-5.jpg)
+
+### 常用结构体
+
+在Foundation中定义了很多常用结构体类型来简化我们的日常开发，这些结构体完全采用Objective-C定义，和我们自己定义的结构体没有任何区别，之所以由框架为我们提供完全是为了简化我们的开发。常用的结构体有**NSRange、NSPoint、NSSize、NSRect**等
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+
+/*NSRange表示一个范围*/
+void test1(){
+    NSRange rg={3,5};//第一参数是起始位置第二个参数是长度
+    //NSRange rg;
+    //rg.location=3;
+    //rg.length=5;
+    //NSRange rg={.location=3,.length=5};
+    //常用下面的方式定义 NSRange rg2=NSMakeRange(3,5);//使用NSMakeRange定义一个NSRange 
+    //打印NSRange可以使用Foundation中方法 NSLog(@"rg2 is %@", NSStringFromRange(rg2));//注意不能直接NSLog(@"rg2 is %@", rg2)，因为rg2不是对象（准确的说%@是指针）而是结构体
+}
+/*NSPoint表示一个点*/
+void test2(){
+    NSPoint p=NSMakePoint(10, 15);//NSPoint其实就是CGPoint
+    //这种方式比较常见 NSPoint p2=CGPointMake(10, 15);
+    NSLog(NSStringFromPoint(p2));
+}
+/*NSSize表示大小*/
+void test3(){
+    NSSize s=NSMakeSize(10, 15);//NSSize其实就是CGSize
+    //这种方式比较常见 CGSize s2=CGSizeMake(10, 15);
+    NSLog(NSStringFromSize(s2));
+}
+/*NSRect表示一个矩形*/
+void test4(){
+    NSRect r=NSMakeRect(10, 5, 100, 200);//NSRect其实就是CGRect
+    //这种方式比较常见 NSRect r2=CGRectMake(10, 5, 100, 200);
+    NSLog(NSStringFromRect(r2));
+}
+
+int main(int argc, const char * argv[]) {
+    @autoreleasepool {
+        test1();
+        test2();
+        test3();
+        test4();
+    } return 0;
+}
+```
+
+可以看到对于常用结构体在Foundation框架中都有一个对应的make方法进行创建，这也是我们日后比较常用的操作;而且与之对应的还都有一个NSStringFromXX方法来进行字符串转换，方便我们调试。上面也提到NSSize其实就是CGSize，NSRect其实就是CGRect，我们可以通过查看代码进行确认，例如NSSize定义：
+
+```objc
+typedef CGSize NSSize;
+```
+
+继续查看CGSize的代码：
+
+```objc
+/** Size **/
+struct CGSize {
+    CGFloat width;
+    CGFloat height;
+};
+typedef struct CGSize CGSize;
+```
+
+### 日期
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+
+
+int main(int argc, const char * argv[]) {
+    
+    NSDate *date1=[NSDate date];//获得当前日期
+    NSLog(@"%@",date1); //结果：2014-07-16 07:25:28 +0000
+    
+    NSDate *date2=[NSDate dateWithTimeIntervalSinceNow:100];//在当前日期的基础上加上100秒，注意在ObjC中多数时间单位都是秒
+    NSLog(@"%@",date2); //结果：2014-07-16 07:27:08 +0000
+    
+    NSDate *date3=[NSDate distantFuture];//随机获取一个将来的日期
+    NSLog(@"%@",date3); //结果：4001-01-01 00:00:00 +0000
+    
+    NSTimeInterval time=[date2 timeIntervalSinceDate:date1];//日期之差,返回单位为秒
+    NSLog(@"%f",time); //结果：100.008833
+    
+    NSDate *date5=[date1 earlierDate:date3];//返回比较早的日期
+    NSLog(@"%@",date5); //结果：2014-07-16 07:25:28 +0000
+    
+    //日期格式化
+    NSDateFormatter *formater1=[[NSDateFormatter alloc]init];
+    formater1.dateFormat=@"yy-MM-dd HH:mm:ss";
+    NSString *datestr1=[formater1 stringFromDate:date1];
+    NSLog(@"%@",datestr1); //结果：14-07-16 15:25:28
+    //字符串转化为日期
+    NSDate *date6=[formater1 dateFromString:@"14-02-14 11:07:16"];
+    NSLog(@"%@",date6); //结果：2014-02-14 03:07:16 +0000
+
+    return 0;
+}
+```
+
+### 字符串
+
+#### 不可变字符串
+
+```objc
+#import <Foundation/Foundation.h>
+
+
+/**字符串操作*/
+void test1(){
+    char *str1="C string";//这是C语言创建的字符串
+    NSString *str2=@"OC string";//ObjC字符串需要加@，并且这种方式创建的对象不需要自己释放内存
+
+    //下面的创建方法都应该释放内存
+    NSString *str3=[[NSString alloc] init];
+    str3=@"OC string";
+    NSString *str4=[[NSString alloc] initWithString:@"Objective-C string"];
+    NSString *str5=[[NSString alloc] initWithFormat:@"age is %i,name is %.2f",19,1.72f];
+    NSString *str6=[[NSString alloc] initWithUTF8String:"C string"];//C语言的字符串转换为ObjC字符串
+
+    //以上方法都有对应静态方法（一般以string开头）,不需要管理内存（系统静态方法一般都是自动释放）
+    NSString *str7=[NSString stringWithString:@"Objective-C string"];
+}
+void test2(){
+    NSLog(@"\"Hello world!\" to upper is %@",[@"Hello world!" uppercaseString]);
+    //结果："Hello world!" to upper is HELLO WORLD!
+    NSLog(@"\"Hello world!\" to lowwer is %@",[@"Hello world!" lowercaseString]);
+    //结果："Hello world!" to lowwer is hello world!
+     
+    //首字母大写，其他字母小写
+    NSLog(@"\"Hello world!\" to capitalize is %@",[@"Hello world!" capitalizedString]);
+    //结果："Hello world!" to capitalize is Hello World!
+     
+    BOOL result= [@"abc" isEqualToString:@"aBc"];
+    NSLog(@"%i",result);
+    //结果：0
+    NSComparisonResult result2= [@"abc" compare:@"aBc"];//如果是[@"abc" caseInsensitiveCompare:@"aBc"]则忽略大小写比较
+    if(result2==NSOrderedAscending){
+        NSLog(@"left<right.");
+    }else if(result2==NSOrderedDescending){
+        NSLog(@"left>right.");
+    }else if(result2==NSOrderedSame){
+        NSLog(@"left=right.");
+    }
+    //结果：left>right.
+}
+void test3(){
+    NSLog(@"has prefix ab? %i",[@"abcdef" hasPrefix:@"ab"]);
+    //结果：has prefix ab? 1
+    NSLog(@"has suffix ab? %i",[@"abcdef" hasSuffix:@"ef"]);
+    //结果：has suffix ab? 1
+    NSRange range=[@"abcdefabcdef" rangeOfString:@"cde"];//注意如果遇到cde则不再往后面搜索,如果从后面搜索或其他搜索方式可以设置第二个options参数
+    if(range.location==NSNotFound){
+        NSLog(@"not found.");
+    }else{
+        NSLog(@"range is %@",NSStringFromRange(range));
+    }
+    //结果：range is {2, 3}
+}
+//字符串分割
+void test4(){
+    NSLog(@"%@",[@"abcdef" substringFromIndex:3]);//从第三个索引开始（包括第三个索引对应的字符）截取到最后一位
+    //结果：def
+    NSLog(@"%@",[@"abcdef" substringToIndex:3]);////从0开始截取到第三个索引（不包括第三个索引对应的字符）
+    //结果：abc
+    NSLog(@"%@",[@"abcdef" substringWithRange:NSMakeRange(2, 3)]);
+    //结果：cde
+    NSString *str1=@"12.abcd.3a";
+    NSArray *array1=[str1 componentsSeparatedByString:@"."];//字符串分割
+    NSLog(@"%@",array1);
+     /*结果：
+      (
+         12,
+         abcd,
+         3a
+      )
+      */
+ 
+}
+//其他操作
+void test5(){
+    NSLog(@"%i",[@"12" intValue]);//类型转换
+    //结果：12
+    NSLog(@"%zi",[@"hello world,世界你好！" length]);//字符串长度注意不是字节数
+    //结果：17
+    NSLog(@"%c",[@"abc" characterAtIndex:0]);//取出制定位置的字符
+    //结果：a
+    const char *s=[@"abc" UTF8String];//转换为C语言字符串
+    NSLog(@"%s",s);
+    //结果：abc
+}
+
+int main(int argc, const char * argv[]) {
+    test1();
+    test2();
+    test3();
+    test4();
+    test5();
+    return 0;
+}
+```
+
+> 注意：上面代码注释中提到的需要释放内存指的是在MRC下的情况，当然本质上在ARC下也需要释放，只是这部分代码编译器会自动创建。
+
+#### 扩展--文件操作
 
 
 
@@ -1446,7 +1999,66 @@ Program ended with exit code: 0
 
 
 
-## Foundation框架
+
+### 数组
+
+
+
+
+
+
+
+
+
+### 字典
+
+
+
+
+
+
+
+
+
+### 装箱和拆箱
+
+
+
+
+
+
+
+### 反射
+
+
+
+
+
+
+
+
+
+### 拷贝
+
+
+
+
+
+
+
+### 文件操作
+
+
+
+
+
+
+
+### 归档
+
+
+
+
 
 
 
