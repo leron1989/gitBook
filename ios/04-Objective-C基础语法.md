@@ -1787,51 +1787,49 @@ UIKit主要用于界面构架，这里我们不妨也看一下它的类结构：
 
 在Foundation中定义了很多常用结构体类型来简化我们的日常开发，这些结构体完全采用Objective-C定义，和我们自己定义的结构体没有任何区别，之所以由框架为我们提供完全是为了简化我们的开发。常用的结构体有**NSRange、NSPoint、NSSize、NSRect**等
 
-main.m
+#### NSRange(范围)
 
 ```objc
-#import <Foundation/Foundation.h>
-
-/*NSRange表示一个范围*/
-void test1(){
-    NSRange rg={3,5};//第一参数是起始位置第二个参数是长度
-    //NSRange rg;
-    //rg.location=3;
-    //rg.length=5;
-    //NSRange rg={.location=3,.length=5};
-    //常用下面的方式定义 NSRange rg2=NSMakeRange(3,5);//使用NSMakeRange定义一个NSRange 
-    //打印NSRange可以使用Foundation中方法 NSLog(@"rg2 is %@", NSStringFromRange(rg2));//注意不能直接NSLog(@"rg2 is %@", rg2)，因为rg2不是对象（准确的说%@是指针）而是结构体
-}
-/*NSPoint表示一个点*/
-void test2(){
-    NSPoint p=NSMakePoint(10, 15);//NSPoint其实就是CGPoint
-    //这种方式比较常见 NSPoint p2=CGPointMake(10, 15);
-    NSLog(NSStringFromPoint(p2));
-}
-/*NSSize表示大小*/
-void test3(){
-    NSSize s=NSMakeSize(10, 15);//NSSize其实就是CGSize
-    //这种方式比较常见 CGSize s2=CGSizeMake(10, 15);
-    NSLog(NSStringFromSize(s2));
-}
-/*NSRect表示一个矩形*/
-void test4(){
-    NSRect r=NSMakeRect(10, 5, 100, 200);//NSRect其实就是CGRect
-    //这种方式比较常见 NSRect r2=CGRectMake(10, 5, 100, 200);
-    NSLog(NSStringFromRect(r2));
-}
-
-int main(int argc, const char * argv[]) {
-    @autoreleasepool {
-        test1();
-        test2();
-        test3();
-        test4();
-    } return 0;
-}
+NSRange rg={3,5};//第一参数是起始位置第二个参数是长度
+//NSRange rg;
+//rg.location=3;
+//rg.length=5;
+//NSRange rg={.location=3,.length=5};
+NSRange rg2=NSMakeRange(3,5); //常用此方式定义，使用NSMakeRange定义一个NSRange 
+NSLog(@"rg2 is %@", NSStringFromRange(rg2));//打印NSRange可以使用Foundation中方法 
+//注意不能直接NSLog(@"rg2 is %@", rg2)，因为rg2不是对象（准确的说%@是指针）而是结构体
 ```
 
-可以看到对于常用结构体在Foundation框架中都有一个对应的make方法进行创建，这也是我们日后比较常用的操作;而且与之对应的还都有一个NSStringFromXX方法来进行字符串转换，方便我们调试。上面也提到NSSize其实就是CGSize，NSRect其实就是CGRect，我们可以通过查看代码进行确认，例如NSSize定义：
+#### NSPoint(点)
+
+```objc
+NSPoint p = NSMakePoint(10, 15); //NSPoint其实就是CGPoint
+NSPoint p2=CGPointMake(10, 15); //这种方式比较常见 
+NSLog(NSStringFromPoint(p2));
+```
+
+#### NSSize(大小)
+
+```objc
+NSSize s=NSMakeSize(10, 15);//NSSize其实就是CGSize
+CGSize s2=CGSizeMake(10, 15); //这种方式比较常见
+NSLog(NSStringFromSize(s2));
+```
+
+#### NSRect(矩形)
+
+```objc
+NSRect r=NSMakeRect(10, 5, 100, 200);//NSRect其实就是CGRect
+NSRect r2=CGRectMake(10, 5, 100, 200);//这种方式比较常见 
+NSLog(NSStringFromRect(r2));
+```
+
+#### 总结
+
+1. 对于常用结构体在Foundation框架中都有一个对应的make方法进行创建，这也是我们日后比较常用的操作;
+
+2. 而且与之对应的还都有一个NSStringFromXX方法来进行字符串转换，方便我们调试。
+3. 上面也提到NSSize其实就是CGSize，NSRect其实就是CGRect，我们可以通过查看代码进行确认，例如NSSize定义：
 
 ```objc
 typedef CGSize NSSize;
@@ -1850,179 +1848,1018 @@ typedef struct CGSize CGSize;
 
 ### 日期
 
-main.m
+#### 当前日期
 
 ```objc
-#import <Foundation/Foundation.h>
+NSDate *date1=[NSDate date];//获得当前日期
+NSLog(@"%@",date1); //结果：2014-07-16 07:25:28 +0000
+```
 
+#### 当前日期 + N秒
 
-int main(int argc, const char * argv[]) {
-    
-    NSDate *date1=[NSDate date];//获得当前日期
-    NSLog(@"%@",date1); //结果：2014-07-16 07:25:28 +0000
-    
-    NSDate *date2=[NSDate dateWithTimeIntervalSinceNow:100];//在当前日期的基础上加上100秒，注意在ObjC中多数时间单位都是秒
-    NSLog(@"%@",date2); //结果：2014-07-16 07:27:08 +0000
-    
-    NSDate *date3=[NSDate distantFuture];//随机获取一个将来的日期
-    NSLog(@"%@",date3); //结果：4001-01-01 00:00:00 +0000
-    
-    NSTimeInterval time=[date2 timeIntervalSinceDate:date1];//日期之差,返回单位为秒
-    NSLog(@"%f",time); //结果：100.008833
-    
-    NSDate *date5=[date1 earlierDate:date3];//返回比较早的日期
-    NSLog(@"%@",date5); //结果：2014-07-16 07:25:28 +0000
-    
-    //日期格式化
-    NSDateFormatter *formater1=[[NSDateFormatter alloc]init];
-    formater1.dateFormat=@"yy-MM-dd HH:mm:ss";
-    NSString *datestr1=[formater1 stringFromDate:date1];
-    NSLog(@"%@",datestr1); //结果：14-07-16 15:25:28
-    //字符串转化为日期
-    NSDate *date6=[formater1 dateFromString:@"14-02-14 11:07:16"];
-    NSLog(@"%@",date6); //结果：2014-02-14 03:07:16 +0000
+```objc
+NSDate *date2=[NSDate dateWithTimeIntervalSinceNow:100];//在当前日期的基础上加上100秒，注意在ObjC中多数时间单位都是秒
+NSLog(@"%@",date2); //结果：2014-07-16 07:27:08 +0000
+```
 
-    return 0;
-}
+#### 随机将来日期
+
+```objc
+NSDate *date3=[NSDate distantFuture];//随机获取一个将来的日期
+NSLog(@"%@",date3); //结果：4001-01-01 00:00:00 +0000
+```
+
+#### 日期之差（秒）
+
+```objc
+NSTimeInterval time=[date2 timeIntervalSinceDate:date1];//日期之差,返回单位为秒
+NSLog(@"%f",time); //结果：100.008833
+```
+
+#### 日期比较（返回较早一个）
+
+```objc
+NSDate *date5=[date1 earlierDate:date3];//返回比较早的日期
+NSLog(@"%@",date5); //结果：2014-07-16 07:25:28 +0000
+```
+
+#### 日期格式化
+
+```objc
+NSDateFormatter *formater1=[[NSDateFormatter alloc]init];
+formater1.dateFormat=@"yy-MM-dd HH:mm:ss";
+NSString *datestr1=[formater1 stringFromDate:date1];
+NSLog(@"%@",datestr1); //结果：14-07-16 15:25:28
+```
+
+#### 字符串转日期
+
+```objc
+NSDate *date6=[formater1 dateFromString:@"14-02-14 11:07:16"];
+NSLog(@"%@",date6); //结果：2014-02-14 03:07:16 +0000
 ```
 
 ### 字符串
 
-#### 不可变字符串
+#### 不可变字符串(NSString)
+
+> 注意：以下代码注释中提到的需要释放内存指的是在MRC下的情况，当然本质上在ARC下也需要释放，只是这部分代码编译器会自动创建。
+
+##### 字符串定义
 
 ```objc
-#import <Foundation/Foundation.h>
+char *str1="C string";//这是C语言创建的字符串
+NSString *str2=@"OC string";//ObjC字符串需要加@，并且这种方式创建的对象不需要自己释放内存
 
+//下面的创建方法都应该释放内存
+NSString *str3=[[NSString alloc] init];
+str3=@"OC string";
+NSString *str4=[[NSString alloc] initWithString:@"Objective-C string"];
+NSString *str5=[[NSString alloc] initWithFormat:@"age is %i,name is %.2f",19,1.72f];
+NSString *str6=[[NSString alloc] initWithUTF8String:"C string"];//C语言的字符串转换为ObjC字符串
 
-/**字符串操作*/
-void test1(){
-    char *str1="C string";//这是C语言创建的字符串
-    NSString *str2=@"OC string";//ObjC字符串需要加@，并且这种方式创建的对象不需要自己释放内存
-
-    //下面的创建方法都应该释放内存
-    NSString *str3=[[NSString alloc] init];
-    str3=@"OC string";
-    NSString *str4=[[NSString alloc] initWithString:@"Objective-C string"];
-    NSString *str5=[[NSString alloc] initWithFormat:@"age is %i,name is %.2f",19,1.72f];
-    NSString *str6=[[NSString alloc] initWithUTF8String:"C string"];//C语言的字符串转换为ObjC字符串
-
-    //以上方法都有对应静态方法（一般以string开头）,不需要管理内存（系统静态方法一般都是自动释放）
-    NSString *str7=[NSString stringWithString:@"Objective-C string"];
-}
-void test2(){
-    NSLog(@"\"Hello world!\" to upper is %@",[@"Hello world!" uppercaseString]);
-    //结果："Hello world!" to upper is HELLO WORLD!
-    NSLog(@"\"Hello world!\" to lowwer is %@",[@"Hello world!" lowercaseString]);
-    //结果："Hello world!" to lowwer is hello world!
-     
-    //首字母大写，其他字母小写
-    NSLog(@"\"Hello world!\" to capitalize is %@",[@"Hello world!" capitalizedString]);
-    //结果："Hello world!" to capitalize is Hello World!
-     
-    BOOL result= [@"abc" isEqualToString:@"aBc"];
-    NSLog(@"%i",result);
-    //结果：0
-    NSComparisonResult result2= [@"abc" compare:@"aBc"];//如果是[@"abc" caseInsensitiveCompare:@"aBc"]则忽略大小写比较
-    if(result2==NSOrderedAscending){
-        NSLog(@"left<right.");
-    }else if(result2==NSOrderedDescending){
-        NSLog(@"left>right.");
-    }else if(result2==NSOrderedSame){
-        NSLog(@"left=right.");
-    }
-    //结果：left>right.
-}
-void test3(){
-    NSLog(@"has prefix ab? %i",[@"abcdef" hasPrefix:@"ab"]);
-    //结果：has prefix ab? 1
-    NSLog(@"has suffix ab? %i",[@"abcdef" hasSuffix:@"ef"]);
-    //结果：has suffix ab? 1
-    NSRange range=[@"abcdefabcdef" rangeOfString:@"cde"];//注意如果遇到cde则不再往后面搜索,如果从后面搜索或其他搜索方式可以设置第二个options参数
-    if(range.location==NSNotFound){
-        NSLog(@"not found.");
-    }else{
-        NSLog(@"range is %@",NSStringFromRange(range));
-    }
-    //结果：range is {2, 3}
-}
-//字符串分割
-void test4(){
-    NSLog(@"%@",[@"abcdef" substringFromIndex:3]);//从第三个索引开始（包括第三个索引对应的字符）截取到最后一位
-    //结果：def
-    NSLog(@"%@",[@"abcdef" substringToIndex:3]);////从0开始截取到第三个索引（不包括第三个索引对应的字符）
-    //结果：abc
-    NSLog(@"%@",[@"abcdef" substringWithRange:NSMakeRange(2, 3)]);
-    //结果：cde
-    NSString *str1=@"12.abcd.3a";
-    NSArray *array1=[str1 componentsSeparatedByString:@"."];//字符串分割
-    NSLog(@"%@",array1);
-     /*结果：
-      (
-         12,
-         abcd,
-         3a
-      )
-      */
- 
-}
-//其他操作
-void test5(){
-    NSLog(@"%i",[@"12" intValue]);//类型转换
-    //结果：12
-    NSLog(@"%zi",[@"hello world,世界你好！" length]);//字符串长度注意不是字节数
-    //结果：17
-    NSLog(@"%c",[@"abc" characterAtIndex:0]);//取出制定位置的字符
-    //结果：a
-    const char *s=[@"abc" UTF8String];//转换为C语言字符串
-    NSLog(@"%s",s);
-    //结果：abc
-}
-
-int main(int argc, const char * argv[]) {
-    test1();
-    test2();
-    test3();
-    test4();
-    test5();
-    return 0;
-}
+//以上方法都有对应静态方法（一般以string开头）,不需要管理内存（系统静态方法一般都是自动释放）
+NSString *str7=[NSString stringWithString:@"Objective-C string"];
 ```
 
-> 注意：上面代码注释中提到的需要释放内存指的是在MRC下的情况，当然本质上在ARC下也需要释放，只是这部分代码编译器会自动创建。
+##### 字符串分割
 
-#### 扩展--文件操作
+1. substringFromIndex
+2. substringToIndex
+3. substringWithRange
+4. componentsSeparatedByString
+
+```objc
+NSLog(@"%@",[@"abcdef" substringFromIndex:3]);//从第三个索引开始（包括第三个索引对应的字符）截取到最后一位
+//结果：def
+NSLog(@"%@",[@"abcdef" substringToIndex:3]);////从0开始截取到第三个索引（不包括第三个索引对应的字符）
+//结果：abc
+NSLog(@"%@",[@"abcdef" substringWithRange:NSMakeRange(2, 3)]);
+//结果：cde
+NSString *str1=@"12.abcd.3a";
+NSArray *array1=[str1 componentsSeparatedByString:@"."];//字符串分割
+NSLog(@"%@",array1);
+/*结果：
+(
+	12,
+	abcd,
+	3a
+)
+*/
+```
+
+##### 大小写转换
+
+1. 小写转大写
+2. 大写转小写
+3. 首字母大写，其他小写
+
+```objc
+NSLog(@"\"Hello world!\" to upper is %@",[@"Hello world!" uppercaseString]);
+//结果："Hello world!" to upper is HELLO WORLD!
+NSLog(@"\"Hello world!\" to lowwer is %@",[@"Hello world!" lowercaseString]);
+//结果："Hello world!" to lowwer is hello world!
+
+//首字母大写，其他字母小写
+NSLog(@"\"Hello world!\" to capitalize is %@",[@"Hello world!" capitalizedString]);
+//结果："Hello world!" to capitalize is Hello World!
+```
+
+##### 字符串比较
+
+1. isEqualToString
+2. compare
+3. caseInsensitiveCompare
+
+```objc
+BOOL result= [@"abc" isEqualToString:@"aBc"];
+NSLog(@"%i",result);
+//结果：0
+NSComparisonResult result2= [@"abc" compare:@"aBc"];//如果是[@"abc" caseInsensitiveCompare:@"aBc"]则忽略大小写比较
+if(result2==NSOrderedAscending){
+    NSLog(@"left<right.");
+}else if(result2==NSOrderedDescending){
+    NSLog(@"left>right.");
+}else if(result2==NSOrderedSame){
+    NSLog(@"left=right.");
+}
+//结果：left>right.
+```
+
+##### 字符串搜索
+
+1. hasPrefix
+2. hasSuffix
+3. rangeOfString
+
+```objc
+NSLog(@"has prefix ab? %i",[@"abcdef" hasPrefix:@"ab"]);
+//结果：has prefix ab? 1
+NSLog(@"has suffix ab? %i",[@"abcdef" hasSuffix:@"ef"]);
+//结果：has suffix ab? 1
+NSRange range=[@"abcdefabcdef" rangeOfString:@"cde"];//注意如果遇到cde则不再往后面搜索,如果从后面搜索或其他搜索方式可以设置第二个options参数
+if(range.location==NSNotFound){
+    NSLog(@"not found.");
+}else{
+    NSLog(@"range is %@",NSStringFromRange(range));
+}
+//结果：range is {2, 3}
+```
+
+##### 其他操作
+
+1. intValue（类型转换）
+2. length（长度）
+3. characterAtIndex（指定位置字符）
+4. UTF8String（objc转c字符串）
+
+```objc
+NSLog(@"%i",[@"12" intValue]);//类型转换
+//结果：12
+NSLog(@"%zi",[@"hello world,世界你好！" length]);//字符串长度注意不是字节数
+//结果：17
+NSLog(@"%c",[@"abc" characterAtIndex:0]);//取出指定位置的字符
+//结果：a
+const char *s=[@"abc" UTF8String];//转换为C语言字符串
+NSLog(@"%s",s);
+//结果：abc
+```
+
+#### 可变字符串(NSMutableString)
+
+ObjC为我们提供了新的可变字符串类NSMutableString，它是NSString的子类。
+
+##### 定义可变字符串
+
+```objc
+/*可变字符串，注意NSMutableString是NSString子类*/
+//注意虽然initWithCapacity分配字符串大小，但是不是绝对的不可以超过此范围，声明此变量对性能有好处
+NSMutableString *str1= [[NSMutableString alloc] initWithCapacity:10];
+[str1 setString:@"hello"];//设置字符串
+NSLog(@"%@",str1);
+//结果：hello
+```
+
+##### 追加字符串
+
+```objc
+[str1 appendString:@",world!"];//追加字符串
+NSLog(@"%@",str1);
+//结果：hello,world!
+
+[str1 appendFormat:@"我的年龄是%i。dear,I love you.",18];
+NSLog(@"%@",str1);
+//结果：hello,world!我的年龄是18。dear,I love you.
+```
+
+##### 替换字符串
+
+```objc
+NSRange range=[str1 rangeOfString:@"dear"];
+[str1 replaceCharactersInRange:range withString:@"Honey"];
+NSLog(@"%@",str1);
+//结果：hello,world!我的年龄是18。Honey,I love you.
+```
+
+##### 插入字符串
+
+```objc
+[str1 insertString:@"My name is Kenshin." atIndex:12];
+NSLog(@"%@",str1);
+//结果：hello,world!My name is Kenshin.我的年龄是18。Honey,I love you.
+```
+
+##### 删除指定字符串
+
+```objc
+[str1 deleteCharactersInRange:[str1 rangeOfString:@"My name is Kenshin."]];//删除指定范围的字符串
+NSLog(@"%@",str1);
+//结果：hello,world!我的年龄是18。Honey,I love you.
+```
 
 
 
+### 文件操作
 
+主要介绍文件的读、写，以及路径的操作，文件扩展名操作
 
+#### 读取文件
 
+```objc
+NSString *path=@"/Users/kenshincui/Desktop/test.txt";
+NSString *str1=[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+//注意上面也可以使用gb2312 gbk等,例如kCFStringEncodingGB_18030_2000，但是需要用CFStringConvertEncodingToNSStringEncoding转换
+NSLog(@"str1 is %@",str1);
+//结果：str1 is hello world,世界你好！
+//上面我们看到了读取文件，但并没有处理错误,当然在ObjC中可以@try @catch @finnally但通常我们并不那么做
+//由于我们的test.txt中有中文，所以使用下面的编码读取会报错，下面的代码演示了错误获取的过程
+NSError *error;
+NSString *str2=[NSString stringWithContentsOfFile:path encoding:kCFStringEncodingGB_18030_2000 error:&error];//注意这句话中的error变量是**error，就是指针的指针那就是指针的地址，由于error就是一个指针此处也就是error的地址&error，具体原因见下面补充
+if(error){
+    NSLog(@"read error ,the error is %@",error);
+}else{
+    NSLog(@"read success,the file content is %@",str2);
+}
+//结果：read error ,the error is Error Domain=NSCocoaErrorDomain Code=261 "The file couldn’t be opened using the specified text encoding." UserInfo=0x100109620 {NSFilePath=/Users/kenshincui/Desktop/test.txt, NSStringEncoding=1586}
 
+//读取文件内容还有一种方式就是利用URl，它除了可以读取本地文件还可以读取网络文件
+//NSURL *url=[NSURL URLWithString:@"file:///Users/kenshincui/Desktop/test.txt"];
+NSURL *url=[NSURL URLWithString:@"http://www.apple.com"];
+NSString *str3=[NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:nil];
+NSLog(@"str3 is %@",str3);
+```
 
+#### 文件写入
+
+```objc
+NSString *path1=@"/Users/kenshincui/Desktop/test2.txt";
+NSError *error1;
+NSString *str11=@"hello world,世界你好！";
+[str11 writeToFile:path1 atomically:YES encoding:NSUTF8StringEncoding error:&error1];//automically代表一次性写入，如果写到中间出错了最后就全部不写入
+if(error1){
+    NSLog(@"write fail,the error is %@",[error1 localizedDescription]);//调用localizedDescription是只打印关键错误信息
+}else{
+    NSLog(@"write success!");
+}
+//结果：write success!
+```
+
+#### 路径操作
+
+```objc
+NSMutableArray *marray=[NSMutableArray array];//可变数组
+[marray addObject:@"Users"];
+[marray addObject:@"KenshinCui"];
+[marray addObject:@"Desktop"];
+
+NSString *path=[NSString pathWithComponents:marray];
+NSLog(@"%@",path);//字符串拼接成路径
+//结果：Users/KenshinCui/Desktop
+
+NSLog(@"%@",[path pathComponents]);//路径分割成数组
+/*结果： 
+     (
+        Users,
+        KenshinCui,
+        Desktop
+    )
+    */
+
+NSLog(@"%i",[path isAbsolutePath]);//是否绝对路径（其实就是看字符串是否以“/”开头）
+//结果：0
+NSLog(@"%@",[path lastPathComponent]);//取得最后一个目录
+//结果：Desktop
+NSLog(@"%@",[path stringByDeletingLastPathComponent]);//删除最后一个目录，注意path本身是常量不会被修改,只是返回一个新字符串
+//结果：Users/KenshinCui
+NSLog(@"%@",[path stringByAppendingPathComponent:@"Documents"]);//路径拼接
+//结果：Users/KenshinCui/Desktop/Documents
+```
+
+#### 扩展名操作
+
+```objc
+NSString *path=@"Users/KenshinCui/Desktop/test.txt";
+NSLog(@"%@",[path pathExtension]);//取得扩展名，注意ObjC中扩展名不包括"."
+//结果：txt
+NSLog(@"%@",[path stringByDeletingPathExtension]);//删除扩展名，注意包含"."
+//结果：Users/KenshinCui/Desktop/test
+NSLog(@"%@",[@"Users/KenshinCui/Desktop/test" stringByAppendingPathExtension:@"mp3"]);//添加扩展名
+//结果：Users/KenshinCui/Desktop/test.mp3
+```
 
 ### 数组
 
+#### 不可变数组（NSArray）
+
+常用的数组操作：初始化、数组对象的方法执行、数组元素的遍历、在原有数组基础上产生新数组、数组排序等。
+
+##### 初始化
+
+```objc
+ //NSArray长度不可变所以初始化的时候就赋值，并且最后以nil结尾
+//此外需要注意NSArray不能存放C语言的基础类型
+NSObject *obj=[[NSObject alloc]init];
+//NSArray *array1=[[NSArray alloc] initWithObjects:@"abc",obj,@"cde",@"opq", nil];
+NSArray *array1=[NSArray arrayWithObjects:@"abc",obj,@"cde",@"opq",@25, nil];
+NSLog(@"%zi",array1.count);//数组长度,结果：5
+NSLog(@"%i",[array1 containsObject:@"cde"]);//是否包含某个对象，结果：1
+NSLog(@"%@",[array1 lastObject]);//最后一个对象，结果：25
+NSLog(@"%zi",[array1 indexOfObject:@"abc"]);//对象所在的位置：0
+
+Person *person1=[Person personWithName:@"Kenshin"];
+Person *person2=[Person personWithName:@"Kaoru"];
+Person *person3=[Person personWithName:@"Rosa"];
+NSArray *array2=[[NSArray alloc]initWithObjects:person1,person2,person3, nil];
+[array2 makeObjectsPerformSelector:@selector(showMessage:) withObject:@"Hello,world!"];//执行所有元素的showMessage方法,后面的参数最多只能有一个
+/*结果：
+     My name is Kenshin,the infomation is "Hello,world!".
+     My name is Kaoru,the infomation is "Hello,world!".
+     My name is Rosa,the infomation is "Hello,world!".
+*/
+```
+
+##### 数组遍历
+
+1. for(int i=0,len=array.count;i<len;++i)
+2. for(id obj in array)
+3. 利用代码块方法
+4. 利用迭代器
+
+```objc
+NSObject *obj=[[NSObject alloc]init];
+NSArray *array=[[NSArray alloc] initWithObjects:@"abc",obj,@"cde",@"opq",@25, nil];
+//方法1
+for(int i=0,len=array.count;i<len;++i){
+    NSLog(@"method1:index %i is %@",i,[array objectAtIndex:i]);
+}
+/*结果：
+     method1:index 0 is abc
+     method1:index 1 is <NSObject: 0x100106de0>
+     method1:index 2 is cde
+     method1:index 3 is opq
+     method1:index 4 is 25
+     */
+
+
+//方法2
+for(id obj in array){
+    NSLog(@"method2:index %zi is %@",[array indexOfObject:obj],obj);
+}
+/*结果：
+     method2:index 0 is abc
+     method2:index 1 is <NSObject: 0x100602f00>
+     method2:index 2 is cde
+     method2:index 3 is opq
+     method2:index 4 is 25
+     */
+
+
+//方法3,利用代码块方法
+[array enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+    NSLog(@"method3:index %zi is %@",idx,obj);
+    if(idx==2){//当idx=2时设置*stop为YES停止遍历
+        *stop=YES;
+    }
+}];
+/*结果：
+     method3:index 0 is abc
+     method3:index 1 is <NSObject: 0x100106de0>
+     method3:index 2 is cde
+     */
+
+
+//方法4，利用迭代器
+//NSEnumerator *enumerator= [array objectEnumerator];//获得一个迭代器
+NSEnumerator *enumerator=[array reverseObjectEnumerator];//获取一个反向迭代器
+//NSLog(@"all:%@",[enumerator allObjects]);//获取所有迭代对象，注意调用完此方法迭代器就遍历完了，下面的nextObject就没有值了
+id obj2=nil;
+while (obj2=[enumerator nextObject]) {
+    NSLog(@"method4:%@",obj2);
+}
+/*结果：
+     method4:25
+     method4:opq
+     method4:cde
+     method4:<NSObject: 0x100106de0>
+     method4:abc
+     */
+```
+
+##### 数组派生
+
+```objc
+NSArray *array=[NSArray arrayWithObjects:@"1",@"2",@"3", nil];
+NSArray *array2=[array arrayByAddingObject:@"4"];//注意此时array并没有变
+NSLog(@"%@",array2);
+/*结果：
+     (
+         1,
+         2,
+         3,
+         4
+     )
+     */
+
+
+NSLog(@"%@",[array2 arrayByAddingObjectsFromArray:[NSArray arrayWithObjects:@"5",@"6", nil]]);//追加形成新的数组
+/*结果：
+     (
+         1,
+         2,
+         3,
+         4,
+         5,
+         6
+     )
+     */
+
+
+NSLog(@"%@",[array2 subarrayWithRange:NSMakeRange(1, 3)]);//根据一定范围取得生成一个新的数组
+/*结果：
+     (
+         2,
+         3,
+         4
+     )
+     */
+
+
+NSLog(@"%@",[array componentsJoinedByString:@","]);//数组连接，形成一个字符串
+//结果：1,2,3
+
+//读写文件
+NSString *path=@"/Users/KenshinCui/Desktop/array.xml";
+[array writeToFile:path atomically:YES];
+NSArray *array3=[NSArray arrayWithContentsOfFile:path];
+NSLog(@"%@",array3);
+/*结果：
+     (
+         1,
+         2,
+         3
+     )
+     */
+```
+
+##### 数组排序
+
+1. 自带的比较器
+2. 自己定义比较器
+3. 使用代码块
+4. 通过描述器定义排序规则
+
+```objc
+//方法1,使用自带的比较器
+NSArray *array=[NSArray arrayWithObjects:@"3",@"1",@"2", nil];
+NSArray *array2= [array sortedArrayUsingSelector:@selector(compare:)];
+NSLog(@"%@",array2);
+/*结果：
+     (
+         1,
+         2,
+         3
+     )
+     */
+
+
+//方法2,自己定义比较器
+Person *person1=[Person personWithName:@"Kenshin"];
+Person *person2=[Person personWithName:@"Kaoru"];
+Person *person3=[Person personWithName:@"Rosa"];
+NSArray *array3=[NSArray arrayWithObjects:person1,person2,person3, nil];
+NSArray *array4=[array3 sortedArrayUsingSelector:@selector(comparePerson:)];
+NSLog(@"%@",array4);
+/*结果：
+     (
+         "name=Kaoru",
+         "name=Kenshin",
+         "name=Rosa"
+     )
+     */
+
+
+//方法3使用代码块
+NSArray *array5=[array3 sortedArrayUsingComparator:^NSComparisonResult(Person *obj1, Person *obj2) {
+    return [obj2.name compare:obj1.name];//降序
+}];
+NSLog(@"%@",array5);
+/*结果：
+     (
+         "name=Rosa",
+         "name=Kenshin",
+         "name=Kaoru"
+     )
+     */
+
+
+//方法4 通过描述器定义排序规则
+Person *person4=[Person personWithName:@"Jack"];
+Person *person5=[Person personWithName:@"Jerry"];
+Person *person6=[Person personWithName:@"Tom"];
+Person *person7=[Person personWithName:@"Terry"];
+NSArray *array6=[NSArray arrayWithObjects:person4,person5,person6,person7, nil];
+//定义一个排序描述
+NSSortDescriptor *personName=[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES];
+NSSortDescriptor *accountBalance=[NSSortDescriptor sortDescriptorWithKey:@"account.balance" ascending:YES];
+NSArray *des=[NSArray arrayWithObjects:personName,accountBalance, nil];//先按照person的name排序再按照account的balance排序
+NSArray *array7=[array6 sortedArrayUsingDescriptors:des];
+NSLog(@"%@",array7);
+/*结果：
+     (
+         "name=Jack",
+         "name=Jerry",
+         "name=Terry",
+         "name=Tom"
+     )
+     */
+```
+
+##### 总结
+
+需要注意几点：
+* **NSArray中只能存放对象**，不能存放基本数据类型，通常我们可以通过在基本数据类型前加@进行转换；
+* 数组中的元素后面必须加nil以表示数据结束；
+* makeObjectsPerformSelector执行数组中对象的方法，其参数最多只能有一个；
+* 上面数组操作中无论是数组的追加、删除、截取都没有改变原来的数组，只是产生了新的数组而已；
+* 对象的比较除了使用系统自带的方法，我们可以通过自定义比较器的方法来实现；
 
 
 
+#### 可变数组(NSMutableArray)
+
+##### 初始化
+
+```objc
+#import "Person.h"
+
+Person *person1=[Person personWithName:@"Kenshin"];
+Person *person2=[Person personWithName:@"Kaoru"];
+Person *person3=[Person personWithName:@"Rosa"];
+
+NSMutableArray *array = [[NSMutableArray alloc] init];
+NSMutableArray *array1=[NSMutableArray arrayWithObjects:person1,person2,person3, nil];
+NSLog(@"%@",array1);
+/*结果：
+     (
+         "name=Kenshin",
+         "name=Kaoru",
+         "name=Rosa"
+     )
+     */
+```
+
+##### 添加元素
+
+```objc
+Person *person4=[Person personWithName:@"Jack"];//此时person4的retainCount为1
+[array1 addObject:person4];//添加一个元素,此时person4的retainCount为2
+NSLog(@"%@",array1);
+/*结果：
+     (
+         "name=Kenshin",
+         "name=Kaoru",
+         "name=Rosa",
+         "name=Jack"
+     )
+     */
+```
+
+##### 删除一个元素
+
+```objc
+[array1 removeObject:person3];//删除一个元素
+NSLog(@"%@",array1);
+/*结果：
+     (
+         "name=Kenshin",
+         "name=Kaoru",
+         "name=Jack"
+     )
+     */
+```
+
+##### 删除最后一个元素
+
+```objc
+[array1 removeLastObject];//删除最后一个元素,//此时person4的retainCount为1
+NSLog(@"%@",array1);
+/*结果：
+     (
+         "name=Kenshin",
+         "name=Kaoru"
+     )
+     */
+```
+
+##### 删除所有元素
+
+```objc
+[array1 removeAllObjects];//删除所有元素
+//注意当往数组中添加一个元素时会retain因此计数器+1，当从数组中移除一个元素时会release因此计数器-1
+//当NSMutalbeArray对象release的时候会依次调用每一个对象的release
+```
+
+##### 排序
+
+1. sortedArrayUsingSelector
+2. sortUsingSelector
+
+```objc
+NSMutableArray *array1=[NSMutableArray arrayWithObjects:@"1",@"3",@"2", nil];
+NSLog(@"%@",array1);
+/*结果：
+     (
+         1,
+         3,
+         2
+     )
+     */
+
+NSArray *array2= [array1 sortedArrayUsingSelector:@selector(compare:)];//注意这个方法没有修改array1
+NSLog(@"%@",array1);
+/*结果：
+     (
+         1,
+         3,
+         2
+     )
+     */
+
+NSLog(@"%@",array2);
+/*结果：
+     (
+         1,
+         2,
+         3
+     )
+     */
+[array1 sortUsingSelector:@selector(compare:)];//这个方法会修改array1
+NSLog(@"%@",array1);
+/*结果：
+     (
+         1,
+         2,
+         3
+     )
+     */
+```
+
+##### 总结
+1. 可变数组中的元素后面必须加nil以表示数据结束；
+2. 往一个可变数组中添加一个对象，此时这个对象的引用计数器会加1，当这个对象从可变数组中移除其引用计数器减1。同时当整个数组销毁之后会依次调用每个对象的releaes方法。
+3. 在不可变数组中无论对数组怎么排序，原来的数组顺序都不会改变，但是在可变数组中如果使用sortUsingSelector:排序原来的数组顺序就发生了变化。
+
+### 字典(NSDictionary & NSMutableDictionary)
+
+字典在我们日常开发中也是比较常用的，通过下面的代码我们看一下在ObjC中的字典的常用操作：初始化、遍历、排序
+
+> **注意：同数组一样，不管是可变字典还是不可变字典初始化元素后面必须加上nil以表示结束。**
+
+#### 初始化(NSDictionary)
+
+```objc
+NSDictionary *dic1=[NSDictionary dictionaryWithObject:@"1" forKey:@"a"];
+NSLog(@"%@",dic1);
+/*结果：
+     {
+        a = 1;
+     }
+     */
+
+//常用的方式
+NSDictionary *dic2=[NSDictionary dictionaryWithObjectsAndKeys:
+                    @"1",@"a",
+                    @"2",@"b",
+                    @"3",@"c",
+                    nil];
+NSLog(@"%@",dic2);
+/*结果：
+     {
+         a = 1;
+         b = 2;
+         c = 3;
+     }
+     */
 
 
+NSDictionary *dic3=[NSDictionary dictionaryWithObjects:[NSArray arrayWithObjects:@"1",@"2", nil] forKeys:[NSArray arrayWithObjects:@"a",@"b", nil]];
+NSLog(@"%@",dic3);
+/*结果：
+     {
+         a = 1;
+         b = 2;
+     }
+     */
 
 
+//更简单的方式
+NSDictionary *dic4=@{@"1":@"a",@"2":@"b",@"3":@"c"};
+NSLog(@"%@",dic4);
+/*结果：
+     {
+         1 = a;
+         2 = b;
+         3 = c;
+     }
+     */
+```
 
-### 字典
+#### 字典长度、取值
+
+```objc
+NSDictionary *dic1=[NSDictionary dictionaryWithObjectsAndKeys:
+                    @"1",@"a",
+                    @"2",@"b",
+                    @"3",@"c",
+                    @"2",@"d",
+                    nil];
+NSLog(@"%zi",[dic1 count]); //结果：4
+NSLog(@"%@",[dic1 valueForKey:@"b"]);//根据键取得值，结果：2
+NSLog(@"%@",dic1[@"b"]);//还可以这样读取，结果：2
+NSLog(@"%@,%@",[dic1 allKeys],[dic1 allValues]);
+/*结果：
+     (
+         d,
+         b,
+         c,
+         a
+     ),(
+         2,
+         2,
+         3,
+         1
+     )
+
+     */
+
+NSLog(@"%@",[dic1 objectsForKeys:[NSArray arrayWithObjects:@"a",@"e" , nil]notFoundMarker:@"not fount"]);//后面一个参数notFoundMarker是如果找不到对应的key用什么值代替
+/*结果：
+     (
+         1,
+         "not fount"
+     )
+     */
+```
+
+#### 遍历
+
+```objc
+NSDictionary *dic1=[NSDictionary dictionaryWithObjectsAndKeys:
+                    @"1",@"a",
+                    @"2",@"b",
+                    @"3",@"c",
+                    @"2",@"d",
+                    nil];
+//遍历1
+for (id key in dic1) {//注意对于字典for遍历循环的是key
+    NSLog(@"%@=%@",key,[dic1 objectForKey:key]);
+}
+/*结果：
+     d=2
+     b=2
+     c=3
+     a=1
+     */
+
+//遍历2
+NSEnumerator *enumerator=[dic1 keyEnumerator];//还有值的迭代器[dic1 objectEnumerator]
+id key=nil;
+while (key=[enumerator nextObject]) {
+    NSLog(@"%@=%@",key,[dic1 objectForKey:key]);
+
+}
+/*结果：
+     d=2
+     b=2
+     c=3
+     a=1
+     */
+
+//遍历3
+[dic1 enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+    NSLog(@"%@=%@",key,obj);
+}];
+/*结果：
+     d=2
+     b=2
+     c=3
+     a=1
+     */
+```
+
+#### 可变字典(NSMutableDictionary)
+
+```objc
+NSMutableDictionary *dic=[NSMutableDictionary dictionaryWithObjectsAndKeys:@"1",@"a",
+                          @"2",@"b",
+                          @"3",@"c",
+                          @"2",@"d",
+                          nil];
+[dic removeObjectForKey:@"b"];
+NSLog(@"%@",dic);
+/*结果：
+     {
+         a = 1;
+         c = 3;
+         d = 2;
+     }
+     */
+
+[dic addEntriesFromDictionary:@{@"e":@"7",@"f":@"6"}];
+NSLog(@"%@",dic);
+/*结果：
+     {
+         a = 1;
+         c = 3;
+         d = 2;
+         e = 7;
+         f = 6;
+     }
+     */
+
+[dic setValue:@"5" forKey:@"a"];
+NSLog(@"%@",dic);
+/*结果：
+     {
+         a = 5;
+         c = 3;
+         d = 2;
+         e = 7;
+         f = 6;
+     }
+     */
 
 
-
-
-
-
+//注意，一个字典的key或value添加到字典中时计数器+1；字典释放时调用key或value的release一次，计数器-1
+```
 
 
 
 ### 装箱和拆箱
 
+#### 概念
 
+​	其实从上面的例子中我们也可以看到，数组和字典中只能存储对象类型，其他基本类型和结构体是没有办法放到数组和字典中的，当然你也是无法给它们发送消息的（也就是说有些NSObject的方法是无法调用的），这个时候通常会用到装箱（boxing）和拆箱（unboxing）。其实各种高级语言基本上都有装箱和拆箱的过程，例如C#中我们将基本数据类型转化为Object就是一个装箱的过程，将这个Object对象转换为基本数据类型的过程就是拆箱，而且在C#中装箱的过程可以自动完成，基本数据类型可以直接赋值给Object对象。但是在ObjC中装箱的过程必须手动实现，ObjC不支持自动装箱。
+
+#### 装箱（基本数据类型转NSObject）
+
+在ObjC中我们一般将基本数据类型装箱成NSNumber类型（当然它也是NSObject的子类，但是NSNumber不能对结构体装箱），调用其对应的方法进行转换：
+
+**+(NSNumber \*)numberWithChar:(char)value;**
+
+**+(NSNumber \*)numberWithInt:(int)value;**
+
+**+(NSNumber \*)numberWithFloat:(float)value;**
+
+**+(NSNumber \*)numberWithDouble:(double)value;**
+
+**+(NSNumber \*)numberWithBool:(BOOL)value;**
+
+**+(NSNumber \*)numberWithInteger:(NSInteger)value;**
+
+```objc
+//包装类NSNumber，可以包装基本类型但是无法包装结构体类型
+NSNumber *number1=[NSNumber numberWithChar:'a'];//'a'是一个C语言的char类型我们无法放倒NSArray中，但是我们可以通过NSNumber包装
+NSArray *array1=[NSArray arrayWithObject:number1];
+NSLog(@"%@",array1);
+/*结果：
+     (
+        97
+     )
+     */
+
+NSNumber *number2= [array1 lastObject];
+NSLog(@"%@",number2);//返回的不是基本类型,结果：97
+```
+
+
+
+#### 拆箱（NSObject转基本数据类型）
+
+拆箱的过程就更加简单了，可以调用如下方法：
+
+**-(char)charValue;**
+
+**-(int)intValue;**
+
+**-(float)floatValue;**
+
+**-(double)doubleValue;**
+
+**-(BOOL)boolValue;**
+
+```objc
+char char1=[number2 charValue];//number转化为char
+NSLog(@"%c",char1); //结果：a
+```
+
+
+
+#### 常用结构体装箱拆线
+
+这个时候我们需要引入另外一个类型NSValue，其实上面的NSNumber就是NSValue的子类，它包装了一些基本数据类型的常用装箱、拆箱方法，当要对结构体进行装箱、拆箱操作我们需要使用NSValue，NSValue可以对任何数据类型进行装箱、拆箱操作。
+
+对于常用的结构体Foundation已经为我们提供好了具体的装箱方法：
+
+**+(NSValue *)valueWithPoint:(NSPoint)point;**
+
+**+(NSValue *)valueWithSize:(NSSize)size;**
+
+**+(NSValue *)valueWithRect:(NSRect)rect;**
+
+对应的拆箱方法：
+
+**-(NSPoint)pointValue;**
+
+**-(NSSize)sizeValue;**
+
+**-(NSRect)rectValue;**
+
+```objc
+CGPoint point1=CGPointMake(10, 20);
+NSValue *value1=[NSValue valueWithPoint:point1];//对于系统自带类型一般都有直接的方法进行包装
+NSArray *array1=[NSArray arrayWithObject:value1];//放倒数组中
+NSLog(@"%@",array1);
+/*结果：
+     (
+        "NSPoint: {10, 20}"
+     )
+     */
+
+NSValue *value2=[array1 lastObject];
+CGPoint point2=[value2 pointValue];//同样对于系统自带的结构体有对应的取值方法（例如本例pointValue）
+NSLog(@"x=%f,y=%f",point2.x,point2.y);//结果：x=10.000000,y=20.000000
+```
+
+
+
+#### 自定义结构图装箱拆线
+
+这个时候我们需要使用NSValue如下方法进行装箱：
+
+**+(NSValue \*)valueWithBytes:(const void \*)value objCType:(const char \*)type;**
+
+调用下面的方法进行拆箱：
+
+**-(void)getValue:(void \*)value;**
+
+```objc
+#import <Foundation/Foundation.h>
+
+typedef struct {
+    int year;
+    int month;
+    int day;
+} Date;
+
+
+//NSNumber是NSValue的子类，而NSValue可以包装任何类型，包括结构体
+void test1(){
+    //如果我们自己定义的结构体包装
+    Date date={2014,2,28};
+    char *type=@encode(Date);
+    NSValue *value3=[NSValue value:&date withObjCType:type];//第一参数传递结构体地址，第二个参数传递类型字符串
+    NSArray *array2=[NSArray arrayWithObject:value3];
+    NSLog(@"%@",array2);
+    /*结果：
+     (
+        "<de070000 02000000 1c000000>"
+     )
+     */
+    
+    Date date2;
+    [value3 getValue:&date2];//取出对应的结构体，注意没有返回值
+    //[value3 objCType]//取出包装内容的类型
+    NSLog(@"%i,%i,%i",date2.year,date2.month,date2.day); //结果：2014,2,28
+    
+}
+
+
+int main(int argc, const char * argv[]) {
+    test1();
+    return  0;
+}
+```
 
 
 
