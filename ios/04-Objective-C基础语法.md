@@ -2863,223 +2863,1037 @@ int main(int argc, const char * argv[]) {
 
 
 
-
-
 ### 反射
 
+由于ObjC动态性，在ObjC中实现反射可以说是相当简单，下面代码中演示了常用的反射操作，具体作用也都在代码中进行了注释说明:
+
+Account.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Account : NSObject
+
+@property (nonatomic,assign) double balance;
+
+@end
+```
+
+Account.m
+
+```objc
+#import "Account.h"
+
+@implementation Account
+
+@end
+```
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+@class Account;
+
+@interface Person : NSObject
+
+@property (nonatomic,copy) NSString *name;
+@property (nonatomic,retain) Account *account;
+
+-(Person *)initWithName:(NSString *)name;
+
++(Person *)personWithName:(NSString *)name;
+
+-(void)showMessage:(NSString *)infomation;
+
+//自己实现对象比较方法
+-(NSComparisonResult)comparePerson:(Person *)person;
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+-(Person *)initWithName:(NSString *)name{
+    if(self=[super init]){
+        self.name=name;
+    }
+    return self;
+}
+
++(Person *)personWithName:(NSString *)name{
+    Person *person=[[Person alloc]initWithName:name];
+    return person;
+}
+
+-(void)showMessage:(NSString *)infomation{
+    NSLog(@"My name is %@,the infomation is \"%@\".",_name,infomation);
+}
+
+//自己实现对象比较方法
+-(NSComparisonResult)comparePerson:(Person *)person{
+    return [_name compare:person.name];
+}
+
+-(NSString *)description{
+    return [NSString stringWithFormat:@"name=%@",_name];
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
 
 
+int main(int argc, const char * argv[]) {
+    /*常用方法*/
+    Person *person1=[Person personWithName:@"Kenshin"];
+    NSLog(@"%i",[person1 isKindOfClass:[NSObject class]]); //判断一个对象是否为某种类型（如果是父类也返回YES），结果：1
+    NSLog(@"%i",[person1 isMemberOfClass:[NSObject class]]); //判断一个对象是否是某个类的实例化对象，结果：0
+    NSLog(@"%i",[person1 isMemberOfClass:[Person class]]); //结果：1
+    NSLog(@"%i",[person1 conformsToProtocol:@protocol(NSCopying)]);//是否实现了某个协议，结果：0
+    NSLog(@"%i",[person1 respondsToSelector:@selector(showMessage:)]);//是否存在某个方法，结果：1
+    
+    [person1 showMessage:@"Hello,world!"];//直接调用一个方法
+    [person1 performSelector:@selector(showMessage:) withObject:@"Hello,world!"];
+    //动态调用一个方法，注意如果有参数那么参数类型只能为ObjC对象，并且最多只能有两个参数
 
+    
+    /*反射*/
+    //动态生成一个类
+    NSString *className=@"Person";
+    Class myClass=NSClassFromString(className);//根据类名生成类
+    Person *person2=[[myClass alloc]init]; //实例化
+    person2.name=@"Kaoru";
+    NSLog(@"%@",person2);//结果：name=Kaoru
 
+    //类转化为字符串
+    NSLog(@"%@,%@",NSStringFromClass(myClass),NSStringFromClass([Person class])); //结果：Person,Person
 
+    //调用方法
+    NSString *methodName=@"showMessage:";
+    SEL mySelector=NSSelectorFromString(methodName);
+    Person *person3=[[myClass alloc]init];
+    person3.name=@"Rosa";
+    [person3 performSelector:mySelector withObject:@"Hello,world!"]; //结果：My name is Rosa,the infomation is "Hello,world!".
+
+    //方法转化为字符串
+    NSLog(@"%@",NSStringFromSelector(mySelector)); //结果：showMessage:
+    
+    return 0;
+}
+```
 
 
 
 ### 拷贝
 
+对象拷贝操作也比较常见，在ObjC中有两种方式的拷贝：copy和mutablecopy，这两种方式都将产生一个新的对象，只是后者产生的是一个可变对象。在ObjC中如果要想实现copy或者mutablecopy操作需要实现NSCopy或者NSMutableCopy协议，拷贝操作产生的新的对象默认引用计数器是1，在非ARC模式下我们应该对这个对象进行内存管理。在熟悉这两种操作之前我们首先需要弄清两个概念:深复制（或深拷贝）和浅复制（或浅拷贝）。
+
+* 浅复制：在执行复制操作时，对于对象中每一层（对象中包含的对象，例如说属性是某个对象类型）复制都是指针复制（如果从引用计数器角度出发，那么每层对象的引用计数器都会加1）。
+
+* 深复制：在执行复制操作时，至少有一个对象的复制是对象内容复制（如果从引用计数器角度出发，那么除了对象内容复制的那个对象的引用计数器不变，其他指针复制的对象其引用计数器都会加1）。
+
+> **注：**
+>
+> **指针拷贝：拷贝的是指针本身（也就是具体对象的地址）而不是指向的对象内容本身。**
+>
+> **对象复制：对象复制指的是复制内容是对象本身而不是对象的地址。**
+>
+> **完全复制：上面说了深复制和浅复制，既然深复制是至少一个对象复制是对象内容复制，那么如果所有复制都是对象内容复制那么这个复制就叫完全复制。**
+
+对比copy和mutablecopy其实前面我们一直还用到一个操作是retain，它们之间的关系如下：
+
+1. retain：始终采取浅复制，引用计数器会加1，返回的对象和被复制对象是同一个对象1（也就是说这个对象的引用多了一个，或者说是指向这个对象的指针多了一个）；
+
+2. copy：对于不可变对象copy采用的是浅复制，引用计数器加1（其实这是编译器进行了优化，既然原来的对象不可变，复制之后的对象也不可变那么就没有必要再重新创建一个对象了）；对于可变对象copy采用的是深复制，引用计数器不变（原来的对象是可变，现在要产生一个不可变的当然得重新产生一个对象）；
+
+3. mutablecopy：无论是可变对象还是不可变对象采取的都是深复制，引用计数器不变（如果从一个不可变对象产生一个可变对象自然不用说两个对象绝对不一样肯定是深复制；如果从一个可变对象产生出另一个可变对象，那么当其中一个对象改变自然不希望另一个对象改变，当然也是深复制）。
+
+> **注：**
+>
+> **可变对象：当值发生了改变，那么地址也随之发生改变；**
+>
+> **不可变对象：当值发生了改变，内容首地址不发生变化；**
+>
+> **引用计数器：用于计算一个对象有几个指针在引用（有几个指针变量指向同一个内存地址）；**
+
+ 
+
+```objc
+#import <Foundation/Foundation.h>
 
 
+void test1(){
+    NSString *name=@"Kenshin";
+    NSString *str1=[NSString stringWithFormat:@"I'm %@.",name];//注意此时str1的计数器是1
+    NSLog(@"%lu",[str1 retainCount]); //结果：1
+    
+    
+    NSMutableString *str2=[str1 mutableCopy];//注意此时str2的计数器为1，str1的计数器还是1
+    //NSMutableString *str5 =CFRetain((__bridge CFTypeRef)str2);
+    NSLog(@"retainCount(str1)=%lu,retainCount(str2)=%lu",[str1 retainCount],[str2 retainCount]);
+    //结果：retainCount(str1)=1,retainCount(str2)=1
+    
+    
+    [str2 appendString:@"def"];//改变str2，str1不变
+    NSLog(@"%zi",str1==str2);//二者不是向同一个对象,结果：0
+    NSLog(@"str1=%@",str1); //结果：str1=I'm Kenshin.
+    NSLog(@"str2=%@",str2); //结果：str2=I'm Kenshin.def
+    
+    
+    NSLog(@"str1's %lu",[str1 retainCount]);
+    NSString *str3=[str1 copy];//str3不是产生的新对象而是复制了对象指针，但是str1的计数器+1（当然既然str3同样指向同一个对象，那么如果计算str3指向的对象引用计数器肯定等于str1的对象引用计数器）
+    NSLog(@"%zi",str1==str3);//二者相等指向同一个对象,结果：1
+    NSLog(@"retainCount(str1)=%lu,retainCount(str3)=%lu",str1.retainCount,str3.retainCount);
+    //结果：retainCount(str1)=2,retainCount(str3)=2
+    
+    //需要注意的是使用copy和mutableCopy是深复制还是浅复制不是绝对，关键看由什么对象产生什么样的对象
+    NSString *str4=[str2 copy];//由NSMutableString产生了NSString，二者类型都不同肯定是深拷贝，此时str2的计数器还是1，str4的计数器也是1
+    [str2 appendString:@"g"];//改变原对象不影响str4
+    NSLog(@"%zi",str2==str4); //结果：0
+    NSLog(@"str2=%@",str2); //结果：str2=I'm Kenshin.defg
+    NSLog(@"str4=%@",str4); //结果：str4=I'm Kenshin.def
 
+    
+    [str1 release];
+    str1=nil;
+    [str3 release];//其实这里也可以调用str1再次release，因为他们两个指向的是同一个对象（但是一般不建议那么做，不容易理解）
+    str3=nil;
+    
+    [str2 release];
+    str2=nil;
+    [str4 release];
+    str4=nil;
+    
+    //上面只有一种情况是浅拷贝：不可变对象调用copy方法
+    
+}
+
+int main(int argc,char *argv[]){
+    test1();
+    return 0;
+}
+```
+
+![4-6-1](.\img\4-6-1.png)
+
+从上面可以清楚的看到str1和str3同时指向同一个对象，因此这个对象的引用计数器是2(可以看到两箭头指向那个对象)，str2和str4都是两个新的对象；另外ObjC引入对象拷贝是为了改变一个对象不影响另一个对象，但是我们知道NSString本身就不能改变那么即使我重新复制一个对象也没有任何意义，因此为了性能着想如果通过copy方法产生一个NSString时ObjC不会再复制一个对象而是将新变量指向同一个对象。
+
+> **注意网上很多人支招在ARC模式下可以利用_objc_rootRetainCount()或者CFGetRetainCount()取得retainCount都是不准确的，特别是在对象拷贝操作之后你会发现二者取值也是不同的，因此如果大家要查看retainCount最好还是暂时关闭ARC。**
+
+要想支持copy或者mutablecopy操作那么对象必须实现NSCoping协议并实现**-(id)copyWithZone:(NSZone\*)zone**方法，在Foundation中常用的可复制对象有：NSNumber、NSString、NSMutableString、NSArray、NSMutableArray、NSDictionary、NSMutableDictionary。下面看一下如何让自定义的类支持copy操作：
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+@class Account;
+
+@interface Person : NSObject
+
+@property  NSMutableString *name;
+@property (nonatomic,assign) int age;
+
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+
+-(NSString *)description{
+    return [NSString stringWithFormat:@"name=%@,age=%i",_name,_age];
+}
+
+//实现copy方法
+-(id)copyWithZone:(NSZone *)zone{
+    //注意zone是系统已经分配好的用于存储当前对象的内存
+    //注意下面创建对象最好不要用[[Person allocWithZone:zone]init]，因为子类如果没有实现该方法copy时会调用父类的copy方法，此时需要使用子类对象初始化如果此时用self就可以表示子类对象，还有就是如果子类调用了父类的这个方法进行重写copy也需要调用子类对象而不是父类Person
+    Person *person1=[[[self class] allocWithZone:zone]init];
+    person1.name=_name;
+    person1.age=_age;
+    return person1;
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Account.h"
+#import "Person.h"
+
+void test1(){
+    Person *person1=[[Person alloc]init];
+    NSMutableString *str1=[NSMutableString stringWithString:@"Kenshin"];
+    person1.name=str1;
+    //由于name定义的时候使用属性参数采用的是copy策略，而根据前面的知识我们知道NSMutableString的copy策略采用的是对象内容复制，因此如果修改str1不会改变person1.name
+    [str1 appendString:@" Cui"];
+    NSLog(@"%@",str1);//结果：Kenshin Cui
+    NSLog(@"%@",person1.name); //结果：Kenshin
+    
+}
+
+void test2(){
+    Person *person1=[[Person alloc]init];
+    person1.name=[NSMutableString stringWithString:@"Kenshin"];
+    person1.age=28;
+    Person *person2=[person1 copy];
+    NSLog(@"%@",person1); //结果：name=Kenshin,age=0
+    NSLog(@"%@",person2); //结果：name=Kenshin,age=0
+    
+    [person2.name appendString:@" Cui"];
+    
+    NSLog(@"%@",person1);//结果：name=Kenshin Cui,age=28
+    NSLog(@"%@",person2);//结果：name=Kenshin Cui,age=28
+}
+
+int main(int argc,char *argv[]){
+    test1();
+    test2();
+    return 0;
+}
+```
+
+![4-6-2](.\img\4-6-2.png)
+
+上面test2的写法纯属为了让大家了解复制的原理和本质，实际开发中我们很少会遇到这种情况，首先我们一般定义name的话可能用的是NSString类型，根本也不能修改；其次我们定义字符串类型的话一般使用(copy)参数，同样可以避免这个问题（因为NSMutableString的copy是深复制）。那么如果我们非要使用NSMutabeString同时不使用属性的copy参数如何解决这个问题呢？答案就是使用深复制，将-(id)copyWithZone:(NSZone *)zone方法中person1.name=_name改为，person1.name=[_name copy];或person1.name=[_name mutablecopy]即可，这样做也正好满足我们上面对于深复制的定义。
 
 
 
 ### 文件操作
 
+```objc
+//
+//  main.m
+//  FoundationFramework
+//
+//  Created by Kenshin Cui on 14-2-16.
+//  Copyright (c) 2014年 Kenshin Cui. All rights reserved.
+//
 
+#import <Foundation/Foundation.h>
 
+/*目录操作*/
+void test1(){
+    //文件管理器是专门用于文件管理的类
+    NSFileManager *manager=[NSFileManager defaultManager];
+    
+    //获得当前程序所在目录(当然可以改变)
+    NSString *currentPath=[manager currentDirectoryPath];
+    NSLog(@"current path is :%@",currentPath);
+    //结果：/Users/kenshincui/Library/Developer/Xcode/DerivedData/FoundationFramework-awxjohcpgsqcpsanqofqogwbqgbx/Build/Products/Debug
+    
+    //创建目录
+    NSString *myPath=@"/Users/kenshincui/Desktop/myDocument";
+    BOOL result= [manager createDirectoryAtPath:myPath withIntermediateDirectories:YES attributes:nil error:nil];
+    if(result==NO){
+        NSLog(@"Couldn't create directory!");
+    }
+    
+    //目录重命名，如果需要删除目录只要调用removeItemAtPath:<#(NSString *)#> error:<#(NSError **)#>
+    NSError *error;
+    NSString *newPath=@"/Users/kenshincui/Desktop/myNewDocument";
+    if([manager moveItemAtPath:myPath toPath:newPath error:&error]==NO){
+        NSLog(@"Rename directory failed!Error infomation is:%@",error);
+    }
+    
+    //改变当前目录
+    if([manager changeCurrentDirectoryPath:newPath]==NO){
+        NSLog(@"Change current directory failed!");
+    }
+    NSLog(@"current path is :%@",[manager currentDirectoryPath]);
+    //结果：current path is :/Users/kenshincui/Desktop/myNewDocument
+    
+    //遍历整个目录
+    NSString *path;
+    NSDirectoryEnumerator *directoryEnumerator= [manager enumeratorAtPath:newPath];
+    while (path=[directoryEnumerator nextObject]) {
+        NSLog(@"%@",path);
+    }
+    /*结果：
+     documents
+     est.txt
+    */
+    
+    //或者这样遍历
+    NSArray *paths= [manager contentsOfDirectoryAtPath:newPath error:nil];
+    NSObject *p;
+    for (p in paths) {
+        NSLog(@"%@",p);
+    }
+    /*结果：
+     documents
+     est.txt
+     */
+}
 
+/*文件操作*/
+void test2(){
+    NSFileManager *manager=[NSFileManager defaultManager];
+    NSString *filePath=@"/Users/kenshincui/Desktop/myNewDocument/test.txt";
+    NSString *filePath2=@"/Users/kenshincui/Desktop/test.txt";
+    NSString *newPath=@"/Users/kenshincui/Desktop/myNewDocument/test2.txt";
+    
+    //判断文件是否存在，这个方法也可以判断目录是否存在，这要后面的参数设置位YES
+    if ([manager fileExistsAtPath:filePath isDirectory:NO]) {
+        NSLog(@"File exists！");
+    }
+    
+    //文件是否可读
+    if([manager isReadableFileAtPath:filePath]){
+        NSLog(@"File is readable!");
+    }
+    
+    //判断两个文件内容是否相等
+    if ([manager contentsEqualAtPath:filePath andPath:filePath2]) {
+        NSLog(@"file1 equals file2");
+    }
+    
+    //文件重命名，方法类似于目录重命名
+    if (![manager moveItemAtPath:filePath toPath:newPath error:nil]) {
+        NSLog(@"Rename file1 failed!");
+    }
+    
+    //文件拷贝
+    NSString *filePath3=@"/Users/kenshincui/Desktop/test3.txt";
+    if(![manager copyItemAtPath:newPath toPath:filePath3 error:nil]){
+        NSLog(@"Copy failed!");
+    }
+    
+    //读取文件属性
+    NSDictionary *attributes;
+    if ((attributes=[manager attributesOfItemAtPath:newPath error:nil])==nil) {
+        NSLog(@"Read attributes failed!");
+    }
+    for (NSObject *key in attributes) {
+        NSLog(@"%@=%@",key,attributes[key]);
+    }
+    /*结果：
+         NSFileOwnerAccountID=501
+         NSFileHFSTypeCode=0
+         NSFileSystemFileNumber=1781953
+         NSFileExtensionHidden=0
+         NSFileSystemNumber=16777218
+         NSFileSize=27
+         NSFileGroupOwnerAccountID=20
+         NSFileOwnerAccountName=kenshincui
+         NSFileCreationDate=2014-07-28 11:47:58 +0000
+         NSFilePosixPermissions=420
+         NSFileHFSCreatorCode=0
+         NSFileType=NSFileTypeRegular
+         NSFileExtendedAttributes={
+         "com.apple.TextEncoding" = <7574662d 383b3133 34323137 393834>;
+         }
+         NSFileGroupOwnerAccountName=staff
+         NSFileReferenceCount=1
+         NSFileModificationDate=2014-07-28 11:47:58 +0000
+     */
+    
+    //删除文件
+    [manager removeItemAtPath:newPath error:nil];
+    
+}
+//文件操作--文件内容操作（NSData，非结构化字节流对象，有缓冲区管理机制，可用于网络传输）
+void test3(){
+    NSFileManager *manager=[NSFileManager defaultManager];
+    NSString *filePath=@"/Users/kenshincui/Desktop/myNewDocument/test2.txt";
+    NSData *data=[manager contentsAtPath:filePath];
+    NSLog(@"%@",data);//存储的是二进制字节流
+    //结果:<68656c6c 6f20776f 726c642c e4b896e7 958ce4bd a0e5a5bd efbc81>
+    
+    //NSData转化成字符串
+    NSString *str1=[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];
+    NSLog(@"%@",str1);
+    //结果：hello world,世界你好！
+    
+    //字符串转化成NSData
+    NSString *str2=@"Kenshin";
+    NSData *data2=[str2 dataUsingEncoding:NSUTF8StringEncoding];
+    NSLog(@"%@",data2);
+    
+    //当然一般如果仅仅是简单读取文件内容，直接用户NSString方法即可
+    NSString *content=[NSString stringWithContentsOfFile:filePath encoding:NSUTF8StringEncoding error:nil];
+    NSLog(@"%@",content);
+    //结果：hello world,世界你好！
+    
+}
+//文件操作--细粒度控制文件,文件操作柄
+void test4(){
+    NSFileManager *manager=[NSFileManager defaultManager];
+    NSString *filePath=@"/Users/kenshincui/Desktop/myNewDocument/test2.txt";
+    
+    //以只读方式打开文件
+    NSFileHandle *fileHandle=[NSFileHandle fileHandleForReadingAtPath:filePath];//注意这个方法返回类型为instancetype，也就是说对于上面的NSFileHandle它的返回类型也是NSFileHandle
+    NSData *data= [fileHandle readDataToEndOfFile];//完整读取文件
+    NSString *newPath=@"/Users/kenshincui/Desktop/test4.txt";
+    [manager createFileAtPath:newPath contents:nil attributes:nil];
+    NSFileHandle *fileHandle2=[NSFileHandle fileHandleForWritingAtPath:newPath];//以可写方式打开文件
+    [fileHandle2 writeData:data];//写入文件内容
+    
+    [fileHandle2 closeFile];//关闭文件
+
+    
+    //定位到指定位置,默认在文件开头
+    [fileHandle seekToFileOffset:12];
+    NSData *data2= [fileHandle readDataToEndOfFile];
+    NSLog(@"data2=%@",[[NSString alloc]initWithData:data2 encoding:NSUTF8StringEncoding]);
+    //结果：data2=世界你好！
+    
+    [fileHandle seekToFileOffset:6];
+    NSData *data3=[fileHandle readDataOfLength:5];
+    NSLog(@"data3=%@",[[NSString alloc]initWithData:data3 encoding:NSUTF8StringEncoding]);
+    //结果：data3=world
+    
+    [fileHandle closeFile];
+    
+}
+
+//文件路径
+void test5(){
+    NSString *filePath=@"/Users/kenshincui/Desktop/myDocument";
+    NSString *filePath2=@"/Users/kenshincui/Desktop/test.txt";
+
+    //临时文件所在目录
+    NSString *path=NSTemporaryDirectory();
+    NSLog(@"temporary directory is :%@",path);
+    //结果：/var/folders/h6/lss6gncs509c2pgzgty3wd_40000gn/T/
+
+    NSString *lastComponent= [filePath lastPathComponent];
+    NSLog(@"%@",lastComponent); //结果：myDocument
+    
+    NSLog(@"%@",[filePath stringByDeletingLastPathComponent]);
+    //结果：/Users/kenshincui/Desktop
+    NSLog(@"%@",[filePath stringByAppendingPathComponent:@"Pictrues"]);
+    //结果：/Users/kenshincui/Desktop/myDocument/Pictrues
+    NSLog(@"%@",[filePath2 pathExtension]);
+    //结果：txt
+    
+    [[filePath pathComponents] enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        NSLog(@"%i=%@",idx,obj);
+    }];
+    /*结果：
+     0=/
+     1=Users
+     2=kenshincui
+     3=Desktop
+     4=myDocument
+     */
+    
+    
+}
+
+//文件操作--NSURL
+void test6(){
+    NSURL *url=[NSURL URLWithString:@"http://developer.apple.com"];
+    NSString *str1=[NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:nil];
+    NSLog(@"%@",str1);
+}
+
+//文件操作--NSBundle，程序包，一般用于获取Resource中的资源（当然由于当前并非IOS应用没有程序包，只是表示当前程序运行路径）
+//在ios中经常用于读取应用程序中的资源文件，如图片、声音、视频等
+void test7(){
+    //在程序包所在目录创建一个文件
+    NSFileManager *manager=[NSFileManager defaultManager];
+    NSString *currentPath=[manager currentDirectoryPath];
+    NSLog(@"current path is :%@",currentPath);
+    //结果：current path is :/Users/kenshincui/Library/Developer/Xcode/DerivedData/FoundationFramework-awxjohcpgsqcpsanqofqogwbqgbx/Build/Products/Debug
+    NSString *filePath=[currentPath stringByAppendingPathComponent:@"test.txt"];
+    [manager createFileAtPath:filePath contents:[@"Hello,world!" dataUsingEncoding:NSUTF8StringEncoding] attributes:nil];
+    
+    
+    //利用NSBundle在程序包所在目录查找对应的文件
+    NSBundle *bundle=[NSBundle mainBundle];//主要操作程序包所在目录
+    //如果有test.txt则返回路径，否则返回nil
+    NSString *path=[bundle pathForResource:@"test" ofType:@"txt"];//也可以写成：[bundle pathForResource:@"instructions.txt" ofType:nil];
+    NSLog(@"%@",path);
+    //结果：/Users/kenshincui/Library/Developer/Xcode/DerivedData/FoundationFramework-awxjohcpgsqcpsanqofqogwbqgbx/Build/Products/Debug/test.txt
+    NSLog(@"%@",[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil]);
+    //结果：Hello,world!
+    
+    //假设我们在程序运行创建一个Resources目录，并且其中新建pic.jpg，那么用下面的方法获得这个文件完整路径
+    NSString *path1= [bundle pathForResource:@"pic" ofType:@"jpg" inDirectory:@"Resources"];
+    NSLog(@"%@",path1);
+    //结果：/Users/kenshincui/Library/Developer/Xcode/DerivedData/FoundationFramework-awxjohcpgsqcpsanqofqogwbqgbx/Build/Products/Debug/Resources/pic.jpg
+}
+
+int main(int argc,char *argv[]){
+
+    test1();
+    test2();
+    test3();
+    test4();
+    test5();
+    test6();
+    test7();
+    
+    return 0;
+}
+```
 
 
 
 ### 归档
 
+归档，在其他语言中又叫“序列化”，就是将对象保存到硬盘；解档，在其他语言又叫“反序列化”就是将硬盘文件还原成对象。其实归档就是数据存储的过程，在IOS中数据的存储有五种方式：
 
+1. xml属性列表（plist归档）
+2. NSUserDefaults（偏好设置）
+3. NSKeyedArchiver归档（加密形式）
+4. SQLite3(嵌入式数据库)
+5. Core Data（面向对象方式的嵌入式数据库）
 
+当然关于2、4、5点不是我们今天介绍的重点，这个在IOS开发过程中我们会重点说到。
 
+#### xml属性列表
 
+首先我们先来看一下xml属性列表，xml属性列表进行归档的方式是将对象存储在一个plist文件中，这个操作起来比较简单，其实相当于xml序列化。但是同时它也有缺点：一是这种方式是明文保存的；二是这种方式操作的对象有限，只有NSArray、NSMutableArray、NSDictionary、NSMutableDictionary支持（归档时只要调用对应的writeToFile方法即可，解档调用arrayWithContentsOfFile或dictionaryWithContentsOfFile，注意像NSString、NSNumber、NSData即使有这个方法它存储的也不是xml格式）。
 
+```objc
+#import <Foundation/Foundation.h>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### 格式化字符串
-
-* %d：十进制整数
-* %s：字符串（char，NSString是对象）
-* %o：八进制（octol）
-* %x：十六进制（hexadecimal）
-* %u：无符号十进制整数
-* %f：浮点数
-* %e：浮点数科学计数法
-* %p：内存地址格式说明，一般内存地址都已十六进制输出
-* %zu：数据类型大小
-* %@：输出对象的描述信息
-* 
-
-> 1. 在%和转换字符间加入==l（long）或者ll（long long）==，指明是大整数数据类型，如：%ld、%lo、%lx
-> 2. 通过在%和f或者e之间加入小数点和数字来指定浮点数小数位数，如：%.2f（两位小数）, %.2e（两位小数科学计数法）
-
-
-### 变量
-1. NSInteger（有符号）、NSUInteger（无符号）可以在32位和64位系统中通用的数字类型。printf这两种类型时，需要转换为long型，如：
-```c
-    NSInteger x = -5;
-    NSUInteger y = 6;
-    printf("Here they are: %ld, %lu", (long)x, (unsigned long)y)
-```
-
-### 方法
-1. abs(), labs()：前者计算int型绝对值、后者计算long型绝对值，需要include <stdlib.h>
-2. include <math.h>使用数学代码库。
-3. readline()：获取用户输入，需要引入代码库；libreadline.tbd
-4. atoi()：将字符串转为整数，如：
-```c
-int num = "23" //出错
-
-int num = atoi("23") //正确
-
-int num = atoi("abc") //记过为0
-```
-> 如果字符串无法转为int，则返回0
-
-5. sizeof()：得到某个数据类型的大小，结合指针地址使用可以获取数据在内存中的结束地址。
-    * sizeof()会返回一个类型为size_t的数，与之对应的格式说明符为%zu
-    * sizeof()传入的参数还可以是变量
-```c
-int i = 7;
-int *addressOfI = &i
-printf("An int is %zu\n", sizeof(int)); //结果为：AN int is 4
-
-printf("A pointer is %zu\n", sizeof(int *));//结果为：A pointer is 8
-
-printf("A pointer is %zu\n", sizeof(addressOfI));//结果为：A pointer is 8
-```
-
-6. modf()：调用该方法时传入double类型的数与指针地址，会返回小数部分，并且将整数部分保存到指针地址中。
-    * 需要include <math.h>
-    * 这种参数传递方式称为==通过引用传递==
-
-
-### 指针
-> 可以通过变量存储指针地址，通过指针地址变量可以快速传递大数据所在内存地址
-
-1. 在变量前面添加&运算符，来获得变量的内存地址
-2. 有三种用途：
-    * 声明指针，使变量指向内存地址；
-    * 访问保存在内存地址中的数据；
-    * 用在赋值表达式的左侧，将数据保存在指定的地址；
-```c
-int i = 7;
-int *addressOfI = &i; //声明指针，使变量指向内存地址
-printf("i stores its value at %p\n", &addressOfI);
-//输出结果为：i stores its value at 0x7fff5fbff65c
-
-printf("the int stored at addressofi is %d\n", *addressOfI); //访问保存在内存地址中的数据
-//输出结果为：the int stored at addressofi is 7
-
-*addressOfI = 88; //用于赋值表达式左侧，将88保存到指定的内存地址，因为变量i也指向相同地址，所以i的值为：88
-printf("Now i is %d\n", i);
-//输出结果为：Now i is 88
-```
-3. NULL
-    * objective-c中nil等价于NULL，均表示空指针；
-    * NULL就是0
-
-> 某些情况需要使用“空”指针，不指向任何地址。换句话说，有一个指针变量，要给这个变量附上一个值，用来说明此变量没指向任何地址。NULL就是这样一个值，用来说明这个指针变量未指向任何地址。
-
-### 结构（structure）
-1. 使用结构（struct），来定义多个数据的组合体，类似Java中的pojo
-2. 定义结构的两种方式
-  * sturct关键字，定义的时候都要写struct关键字
-  * typedef关键字
-```c
-/// 1.sturct关键字，定义的时候都要写struct关键字
-struct Person {
-    float height;
-    int weight;
+//xml属性
+void test1(){
+    //数组
+    NSString *path=@"/Users/kenshincui/Desktop/arrayXml.plist";
+    NSArray *array1=@[@"Kenshin",@"Kaoru",@"Rosa"];
+    [array1 writeToFile:path atomically:YES];
+    
+    NSArray *array2=[NSArray arrayWithContentsOfFile:path];
+    [array2 enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        NSLog(@"array2[%lu]=%@",idx,obj);
+    }];
+    /*结果：
+     array1[0]=Kenshin
+     array1[1]=Kaoru
+     array1[2]=Rosa
+     */
+    
+    
+    //字典
+    NSString *path2=@"/Users/kenshincui/Desktop/dicXml.plist";
+    NSDictionary *dic1=@{@"name":@"Kenshin",@"age":@28,@"height":@172.5};
+    [dic1 writeToFile:path2 atomically:YES];
+    
+    NSDictionary *dic2=[NSDictionary dictionaryWithContentsOfFile:path2];
+    [dic2 enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+        NSLog(@"dic2[%@]=%@",key,obj);
+    }];
+    /*结果：
+     dic2[height]=172.5
+     dic2[age]=28
+     dic2[name]=Kenshin
+     */
 }
 
-int main(int argc, const char * argv[]){
-    struct Person leron; //声明Person变量时需要struct关键字
-    leron.height = 1.80;
-    leron.weight = 75;
-}
-
-/// 2.typedef关键字
-typedef struct {
-    float height;
-    int weight;
-}Person；
-
-int main(int argc, const char * argv[]){
-    Person leron; //声明Person变量时不需要struct关键字
-    leron.height = 1.80;
-    leron.weight = 75;
-}
-```
-
-### 栈 & 堆
-1. 栈：调用函数时系统自动分配，并在函数结束时自动释放。
-2. 堆：特定内存区域，与栈是分开的。通常连续内存区域叫做：缓冲区。缓冲区来自堆，独立于任何函数的栈，因此可以在多个函数中使用。
-> 在C中可以通过malloc()函数得到一块内存缓冲区。当程序不再使用缓冲区时，可以使用free()函数释放内存，还给堆
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-
-void get1000floatBuffer(){
-    float *startOfBuffer; //声明缓冲区指针变量
+int main(int argc,char *argv[]){
     
-    startOfBuffer = malloc(1000 * sizeof(float));//获取可以存放1000个float类型变量的内存大小的缓冲区
-    
-    //。。。使用缓冲区。。。
-    
-    free(startOfBuffer);//释放缓冲区
-    
-    startOfBuffer = NULL;//将指针变量赋值为NULL
-}
-
-typedef struct {
-    float height;
-    int weight;
-}Person;
-
-float bodyMassIndex(Person *p){
-    return p->weight / (p->height * p->height);
-}
-
-int main(int argc, const char * argv[]) {
-    // insert code here...
-    //get1000floatBuffer();
-    
-    //为Person分配缓冲区
-    Person *leron = (Person *)malloc(sizeof(Person));
-    printf("leron buffer address: %p\n", &leron);
-    
-    //为数据结构赋值
-    //->函数作用：先获取指针leron指向的数据结构，然后返回该结构的成员变量
-    leron->height = 1.8;
-    leron->weight = 75;
-    
-    float leronBMI = bodyMassIndex(leron);
-    printf("leron has a BMI of %f\n", leronBMI);
-    
-    free(leron);
-    
-    leron = NULL;
+    test1();
     
     return 0;
 }
 ```
+
+生成的文件如下:
+
+![4-6-3](.\img\4-6-3.png)
+
+![4-6-4](.\img\4-6-4.png)
+
+#### NSKeyedArchiver归档
+
+如果要针对更多对象归档或者需要归档时能够加密的话就需要使用NSKeyedArchiver进行归档和解档，使用这种方式归档的范围更广而且归档内容是密文存储。从归档范围来讲NSKeyedArchiver适合所有ObjC对象，但是对于自定义对象我们需要实现NSCoding协议；从归档方式来讲NSKeyedArchiver分为简单归档和复杂对象归档，简单归档就是针对单个对象可以直接将对象作为根对象（不用设置key），复杂对象就是针对多个对象，存储时不同对象需要设置不同的Key。
+
+首先看一下系统对象两种归档方式（注意由于本章主要介绍Foundation内容，下面的程序是OS X命令行程序并没有创建成iOS应用，如果移植到到iOS应用下运行将NSArchiver和NSUnarchiver换成NSKeyedArchiver和NSKeyedUnarchiver。虽然在Foundation部分iOS和OS X在设计上尽可能通用但是还存在着细微差别。）
+
+```objc
+#import <Foundation/Foundation.h>
+
+//系统对象简单归档
+void test1(){
+    //NSString归档
+    NSString *str1=@"Hello,world!";
+    NSString *path1=@"/Users/kenshincui/Desktop/archiver1.arc";
+    if(![NSArchiver archiveRootObject:str1 toFile:path1]){
+        NSLog(@"archiver failed!");
+    }
+    //NSString解档
+    NSString *str2= [NSUnarchiver unarchiveObjectWithFile:path1];
+    NSLog(@"str2=%@",str2);//结果：str2=Hello,world!
+    
+    
+    //NSArray归档
+    NSString *path2=@"/Users/kenshincui/Desktop/archiver2.arc";
+    NSArray *array1=@[@"Kenshin",@"Kaoru",@"Rosa"];
+    if(![NSArchiver archiveRootObject:array1 toFile:path2]){
+        NSLog(@"archiver failed!");
+    }
+    //NSArray解档
+    NSArray *array2=[NSUnarchiver unarchiveObjectWithFile:path2];
+    [array2 enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        NSLog(@"array2[%lu]=%@",idx,obj);
+    }];
+    /*结果：
+     array2[0]=Kenshin
+     array2[1]=Kaoru
+     array2[2]=Rosa
+     */
+}
+
+//系统复杂对象归档（多对象归档）
+void test2(){
+    /*归档*/
+    NSString *path1=@"/Users/kenshincui/Desktop/archiver3.arc";
+    
+    int int1=89;
+    CGSize size1={12.5,16.8};
+    NSNumber *number1=@60.5;
+    NSString *str1=@"Hello,world!";
+    NSArray *array1=@[@"Kenshin",@"Kaoru",@"Rosa"];
+    NSDictionary *dic1=@{@"name":@"Kenshin",@"age":@28,@"height":@172.5};
+    
+    //同时对多个对象进行归档
+    NSMutableData *data1=[[NSMutableData alloc]init];//定义一个NSMutableData用于临时存放数据
+    NSKeyedArchiver *archiver=[[NSKeyedArchiver alloc]initForWritingWithMutableData:data1];//定义归档对象
+    [archiver encodeInt:int1 forKey:@"int"];//对int1归档并指定一个key以便以后读取
+    [archiver encodeSize:size1 forKey:@"size"];
+    [archiver encodeObject:number1 forKey:@"number"];
+    [archiver encodeObject:str1 forKey:@"string"];
+    [archiver encodeObject:array1 forKey:@"array"];
+    [archiver encodeObject:dic1 forKey:@"dic"];
+
+    [archiver finishEncoding];//结束归档
+    
+    [data1 writeToFile:path1 atomically:YES];//写入文件
+    
+    
+    
+    /*解档*/
+    int int2;
+    CGSize size2;
+    NSNumber *number2;
+    NSString *str2;
+    NSArray *array2;
+    NSDictionary *dic2;
+    
+    NSData *data2=[[NSData alloc]initWithContentsOfFile:path1];//读出数据到NSData
+    NSKeyedUnarchiver *unarchiver=[[NSKeyedUnarchiver alloc]initForReadingWithData:data2];
+    
+    int2= [unarchiver decodeInt64ForKey:@"int"];
+    size2=[unarchiver decodeSizeForKey:@"size"];
+    number2=[unarchiver decodeObjectForKey:@"number"];
+    str2=[unarchiver decodeObjectForKey:@"string"];
+    array2=[unarchiver decodeObjectForKey:@"array"];
+    dic2=[unarchiver decodeObjectForKey:@"dic"];
+    
+    [unarchiver finishDecoding];
+    
+    NSLog(@"int2=%i,size=%@,number2=%@,str2=%@,array2=%@,dic2=%@",int2,NSStringFromSize(size2),number2,str2,array2,dic2);
+    /*结果：
+     int2=89,
+     size={12.5, 16.800000000000001},
+     number2=60.5,
+     str2=Hello,world!,
+     array2=(
+         Kenshin,
+         Kaoru,
+         Rosa
+     ),
+     dic2={
+         age = 28;
+         height = "172.5";
+         name = Kenshin;
+     }
+     */
+}
+
+
+int main(int argc,char *argv[]){
+
+    test1();
+    test2();
+    
+    return 0;
+}
+```
+
+接下来看一下自定义的对象如何归档，上面说了如果要对自定义对象进行归档那么这个对象必须实现NSCoding协议，在这个协议中有两个方法都必须实现：
+
+**-(void)encodeWithCoder:(NSCoder \*)aCoder**;通过给定的Archiver对消息接收者进行编码；
+
+**-(id)initWithCoder:(NSCoder \*)aDecoder**;从一个给定的Unarchiver的数据返回一个初始化对象；
+
+这两个方法分别在归档和解档时调用。下面通过一个例子进行演示（注意对于自定义类的多对象归档与系统类多对象归档完全一样，代码中不再演示）：
+
+Person.h
+
+```objc
+#import <Foundation/Foundation.h>
+
+@interface Person : NSObject<NSCoding>
+
+@property (nonatomic,copy) NSString *name;
+@property (nonatomic,assign) int age;
+@property (nonatomic,assign) float height;
+@property (nonatomic,assign) NSDate *birthday;
+
+@end
+```
+
+Person.m
+
+```objc
+#import "Person.h"
+
+@implementation Person
+
+#pragma mark 解码
+-(id)initWithCoder:(NSCoder *)aDecoder{
+    NSLog(@"decode...");
+    if (self=[super init]) {
+        self.name=[aDecoder decodeObjectForKey:@"name"];
+        self.age=[aDecoder decodeInt64ForKey:@"age"];
+        self.height=[aDecoder decodeFloatForKey:@"heiht"];
+        self.birthday=[aDecoder decodeObjectForKey:@"birthday"];
+    }
+    return self;
+}
+
+#pragma mark 编码
+-(void)encodeWithCoder:(NSCoder *)aCoder{
+    NSLog(@"encode...");
+    [aCoder encodeObject:_name forKey:@"name"];
+    [aCoder encodeInt64:_age forKey:@"age" ];
+    [aCoder encodeFloat:_height forKey:@"height"];
+    [aCoder encodeObject:_birthday forKey:@"birthday"];
+
+}
+
+#pragma mark 重写描述
+-(NSString *)description{
+    NSDateFormatter *formater1=[[NSDateFormatter alloc]init];
+    formater1.dateFormat=@"yyyy-MM-dd";
+    return [NSString stringWithFormat:@"name=%@,age=%i,height=%.2f,birthday=%@",_name,_age,_height,[formater1 stringFromDate:_birthday]];
+}
+
+@end
+```
+
+main.m
+
+```objc
+#import <Foundation/Foundation.h>
+#import "Person.h"
+
+
+int main(int argc,char *argv[]){
+
+    //归档
+    Person *person1=[[Person alloc]init];
+    person1.name=@"Kenshin";
+    person1.age=28;
+    person1.height=1.72;
+    NSDateFormatter *formater1=[[NSDateFormatter alloc]init];
+    formater1.dateFormat=@"yyyy-MM-dd";
+    person1.birthday=[formater1 dateFromString:@"1986-08-08"];
+    
+    NSString *path1=@"/Users/kenshincui/Desktop/person1.arc";
+    
+    [NSKeyedArchiver archiveRootObject:person1 toFile:path1];
+
+    //解档
+    Person *person2= [NSKeyedUnarchiver unarchiveObjectWithFile:path1];
+    NSLog(@"%@",person2);
+    /*结果：
+     name=Kenshin,age=28,height=0.00,birthday=1986-08-08
+     */
+    
+    return 0;
+}
+```
+
+
+
+### 其他
+
+#### NSNull
+
+通过前面的介绍大家都知道无论在数组还是在字典中都必须以nil结尾，否则数组或字典无法判断是否这个数组或字典已经结束（与C语言中的字符串比较类似，C语言中定义字符串后面必须加一个”\0”）。但是我们有时候确实想在数据或字典中存储nil值而不是作为结束标记怎么办呢？这个时候需要使用NSNull，这个类是一个单例，只有一个null方法。简单看一下：
+
+```objc
+#import <Foundation/Foundation.h>
+
+
+
+int main(int argc, const char * argv[]) {
+    
+    NSNull *nl=[NSNull null];//注意这是一个对象，是一个单例，只有一个方法null创建一个对象
+    NSNull *nl2=[NSNull null];
+    NSLog(@"%i",nl==nl2);//由于是单例所以地址相等,结果：1
+    
+    NSArray *array1=[NSArray arrayWithObjects:@"abc",nl,@123, nil];
+    NSLog(@"%@",array1);
+    /*结果：
+     (
+         abc,
+         "<null>",
+         123
+     )
+     */
+
+    return  0;
+}
+```
+
+
+
+#### @符号
+
+我们知道在ObjC中很多关键字前都必须加上@符号，例如@protocol、@property等，当然ObjC中的字符串必须使用@符号，还有就是%@可以表示输出一个对象。其实@符号在新版的ObjC中还有一个作用：装箱。
+
+```objc
+#import <Foundation/Foundation.h>
+
+typedef enum {
+    spring,
+    summer,
+    autumn,
+    winter
+} Season;
+
+int main(int argc, const char * argv[]) {
+    /*装箱*/
+    NSNumber *number1=@100;
+    NSArray *array1=[NSArray arrayWithObjects:number1,@"abc",@16,@'A',@16.7,@YES, nil];
+    NSLog(@"%@",array1);
+    /*结果：
+     (
+         100,
+         abc,
+         16,
+         65,
+         "16.7"
+         1
+     )
+     */
+    NSNumber *number2=@(1+2*3);
+    NSLog(@"%@",number2); //结果：7
+    NSNumber *number3=@(autumn);
+    NSLog(@"%@",number3); //结果：2
+    
+
+    NSArray *array2=@[@"abc",@16,@'A',@16.7,@YES];//使用这种方式最后不用添加nil值了
+    NSLog(@"%@",array2[2]); //结果：65
+    NSMutableArray *array3=[NSMutableArray arrayWithArray:array2];
+    array3[0]=@"def";
+    NSLog(@"%@",array3[0]); //结果：def
+    
+    NSDictionary *dic1=@{@"a":@123,@"b":@'c',@"c":@YES};
+    NSLog(@"%@",dic1);
+    /*结果：
+     {
+         a = 123;
+         b = 99;
+         c = 1;
+     }
+     */
+    NSMutableDictionary *dic2=[NSMutableDictionary dictionaryWithDictionary:dic1];
+    dic2[@"a"]=@456;
+    NSLog(@"%@",dic2[@"a"]);//结果：456
+
+    return 0;
+}
+```
+
+#### NSString的引用计数器
+
+在好多语言中字符串都是一个特殊的对象，在ObjC中也不例外。NSString作为一个对象类型存储在堆中，多数情况下它跟一般的对象类型没有区别，但是这里我们需求强调一点那就是字符串的引用计数器。
+
+```objc
+#import <Foundation/Foundation.h>
+
+
+int main(int argc,char *argv[]){
+    
+    NSString *str1=@"Kenshin";
+    NSLog(@"retainCount(str1)=%i",(unsigned long)str1.retainCount); //结果：-1
+    [str1 retain];
+    NSLog(@"retainCount(str1)=%i",(unsigned long)str1.retainCount); //结果：-1
+    
+    NSString *str2=[NSString stringWithString:@"Kaoru"];
+    NSLog(@"retainCount(str2)=%i",str2.retainCount); //结果：-1
+    [str1 retain];
+    NSLog(@"retainCount(str2)=%i",str2.retainCount); //结果：-1
+    NSString *str2_1=[NSString stringWithString:[NSString stringWithFormat:@"Kaoru %@",@"sun"]];
+    NSLog(@"retainCount(str2_1)=%i",str2_1.retainCount);//结果：2 
+    [str2_1 release];
+    [str2_1 release];
+    
+    
+    
+    NSString *str3=[NSString stringWithFormat:@"Rosa %@",@"Sun"];
+    NSLog(@"retainCount(str3)=%i",str3.retainCount); //结果：1
+    [str3 retain];
+    NSLog(@"retainCount(str3)=%i",str3.retainCount); //结果：2
+    [str3 release];
+    [str3 release];
+    
+    NSString *str4=[NSString stringWithUTF8String:"Jack"];
+    NSLog(@"retainCount(str4)=%i",str4.retainCount); //结果：1
+    [str4 retain];
+    NSLog(@"retainCount(str4)=%i",str4.retainCount); //结果：2
+    [str4 release];
+    [str4 release];
+    
+    NSString *str5=[NSString stringWithCString:"Tom" encoding:NSUTF8StringEncoding];
+    NSLog(@"retainCount(str5)=%i",str5.retainCount); //结果：1
+    [str5 retain];
+    NSLog(@"retainCount(str5)=%i",str5.retainCount); //结果：2
+    [str5 release];
+    [str5 release];
+    
+    
+    
+    NSMutableString *str6=@"Jerry";
+    NSLog(@"retainCount(str6)=%i",str6.retainCount); //结果：-1
+    [str6 retain];
+    NSLog(@"retainCount(str6)=%i",str6.retainCount); //结果：-1
+    [str6 release];
+    [str6 release];
+    
+    NSMutableArray *str7=[NSMutableString stringWithString:@"Lily"];
+    NSLog(@"retainCount(str7)=%i",str7.retainCount); //结果：1
+    [str7 retain];
+    NSLog(@"retainCount(str7)=%i",str7.retainCount); //结果：2
+    [str7 release];
+    [str7 release];
+
+    
+    return 0;
+}
+```
+
+看完上面的例子如果不了解NSString的处理你也许会有点奇怪（注意上面的代码请在Xcode5下运行）？请看下面的解释
+
+* str1是一个字符串常量，它存储在常量区，系统不会对它进行引用计数，因此无论是初始化还是做retain操作其引用计数器均为-1；
+* str3、str4、str5创建的对象同一般对象类似，存储在堆中，系统会对其进行引用计数；
+* 采用stringWithString定义的变量有些特殊，当后面的字符串是字符串常量，则它本身就作为字符串常用量存储（str2），类似于str1；如果后面的参数是通过类似于str3、str4、str5的定义，那么它本身就是一个普通对象，只是后面的对象引用计数器默认为1，当给它赋值时会做一次拷贝操作（浅拷贝），引用计数器加1，所有str2_1引用计数器为2；
+* str6其实和str1类似，虽然定义的是可变数组，但是它的本质还是字符串常量，事实上对于可变字符串只有为字符串常量时引用计数器才为-1，其他情况它的引用计数器跟一般对象完全一致；
+
+**后记：注意上面这段代码的运行结果是在Xcode5中运行的结果，事实上针对最新的Xcode6由于LLVM的优化，只有str2_1和str7的引用计数器为1（str7 retain一次后第二次为2），其他均为-1。**
